@@ -717,15 +717,426 @@ CREATE TABLE IF NOT EXISTS analytics_people (
 
 ---
 
-**Phase 3 Status:** 40% Complete
+## API Request/Response Types
+
+### Thread API Types
+
+**Location:** `crates/loom-server-api/src/threads.rs`
+
+```rust
+/// Query parameters for listing threads
+pub struct ListParams {
+    pub workspace: Option<String>,    // Filter by workspace
+    pub limit: u32,                   // Default: 50
+    pub offset: u32,                  // Pagination offset
+}
+
+/// Response for list endpoint
+pub struct ListResponse {
+    pub threads: Vec<ThreadSummary>,
+    pub total: u64,
+    pub limit: u32,
+    pub offset: u32,
+}
+
+/// Search query parameters
+pub struct SearchParams {
+    pub q: String,                    // Search query
+    pub workspace: Option<String>,
+    pub limit: u32,
+    pub offset: u32,
+}
+
+/// Search response with relevance scores
+pub struct SearchResponse {
+    pub hits: Vec<SearchResponseHit>,
+    pub limit: u32,
+    pub offset: u32,
+}
+
+pub struct SearchResponseHit {
+    #[serde(flatten)]
+    pub summary: ThreadSummary,
+    pub score: f64,                   // Relevance score
+}
+
+/// Request to update thread visibility
+pub struct UpdateVisibilityRequest {
+    pub visibility: ThreadVisibility,
+}
+```
+
+---
+
+### Authentication API Types
+
+**Location:** `crates/loom-server-api/src/auth.rs`
+
+```rust
+/// Available authentication providers
+pub struct AuthProvidersResponse {
+    pub providers: Vec<String>,       // github, google, okta, magiclink, etc.
+}
+
+/// Current authenticated user
+pub struct CurrentUserResponse {
+    pub id: String,
+    pub display_name: String,
+    pub username: Option<String>,
+    pub email: Option<String>,
+    pub avatar_url: Option<String>,
+    pub locale: Option<String>,
+    pub global_roles: Vec<String>,     // system_admin, support, auditor
+    pub created_at: DateTime<Utc>,
+}
+
+/// Magic link authentication request
+pub struct MagicLinkRequest {
+    pub email: String,
+}
+
+/// Device code flow start response
+pub struct DeviceCodeStartResponse {
+    pub device_code: String,
+    pub user_code: String,
+    pub verification_url: String,
+    pub expires_in: i64,
+}
+
+/// Device code poll request
+pub struct DeviceCodePollRequest {
+    pub device_code: String,
+}
+
+/// Device code poll response
+#[serde(tag = "status")]
+pub enum DeviceCodePollResponse {
+    Pending,
+    Completed { access_token: String },
+    Expired,
+}
+
+/// OAuth callback query parameters
+pub struct OAuthCallbackQuery {
+    pub code: Option<String>,
+    pub state: Option<String>,
+    pub error: Option<String>,
+    pub error_description: Option<String>,
+}
+
+/// WebSocket token response (short-lived, 30s)
+pub struct WsTokenResponse {
+    pub token: String,                // Prefix: ws_
+    pub expires_in: i64,              // 30 seconds
+}
+```
+
+---
+
+### Weaver (Remote Execution) API Types
+
+**Location:** `crates/loom-server-api/src/weaver.rs`
+
+```rust
+/// Request to create a new weaver (remote execution pod)
+pub struct CreateWeaverApiRequest {
+    pub image: String,                // Container image
+    pub org_id: String,               // Owner organization
+    pub repo_id: Option<String>,      // Optional repo scope
+    pub env: HashMap<String, String>, // Environment variables
+    pub resources: ResourceSpecApi,    // CPU/memory limits
+    pub tags: HashMap<String, String>, // Metadata tags
+    pub lifetime_hours: Option<u32>,   // Max: 48
+    pub command: Option<Vec<String>>,  // Override ENTRYPOINT
+    pub args: Option<Vec<String>>,     // Override CMD
+    pub workdir: Option<String>,       // Override WORKDIR
+}
+
+/// Resource limits
+pub struct ResourceSpecApi {
+    pub memory_limit: Option<String>,  // e.g., "8Gi"
+    pub cpu_limit: Option<String>,     // e.g., "4"
+}
+
+/// Weaver response
+pub struct WeaverApiResponse {
+    pub id: String,                    // Unique identifier
+    pub pod_name: String,              // K8s pod name
+    pub status: WeaverStatusApi,
+    pub created_at: DateTime<Utc>,
+    pub image: Option<String>,
+    pub tags: Option<HashMap<String, String>>,
+    pub lifetime_hours: Option<u32>,
+    pub age_hours: Option<f64>,
+    pub owner_user_id: Option<String>,
+}
+
+/// Weaver status
+#[serde(rename_all = "snake_case")]
+pub enum WeaverStatusApi {
+    Pending,
+    Running,
+    Succeeded,
+    Failed,
+    Terminating,
+}
+
+/// List weavers response
+pub struct ListWeaversApiResponse {
+    pub weavers: Vec<WeaverApiResponse>,
+    pub count: u32,
+}
+```
+
+---
+
+### Feature Flags API Types
+
+**Location:** `crates/loom-server-api/src/flags.rs`
+
+```rust
+/// Environment for feature flags
+pub struct EnvironmentResponse {
+    pub id: String,
+    pub org_id: String,
+    pub name: String,                  // e.g., "dev", "prod"
+    pub color: Option<String>,         // Hex color code
+    pub created_at: DateTime<Utc>,
+}
+
+/// Create environment request
+pub struct CreateEnvironmentRequest {
+    pub name: String,                  // lowercase alphanumeric, 2-50 chars
+    pub color: Option<String>,         // Hex color code
+}
+
+/// SDK key type
+#[serde(rename_all = "snake_case")]
+pub enum SdkKeyTypeApi {
+    ClientSide,                        // Safe for browser
+    ServerSide,                        // Secret, backend only
+}
+
+/// SDK key response (without secret)
+pub struct SdkKeyResponse {
+    pub id: String,
+    pub environment_id: String,
+    pub environment_name: String,
+    pub key_type: SdkKeyTypeApi,
+    pub name: String,
+    pub created_by: String,
+    pub created_at: DateTime<Utc>,
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub revoked_at: Option<DateTime<Utc>>,
+}
+
+/// Create SDK key response (includes secret)
+pub struct CreateSdkKeyResponse {
+    pub id: String,
+    pub key: String,                   // Actual secret key (only shown once)
+    pub key_preview: String,           // Last 4 chars
+    pub environment_id: String,
+    pub environment_name: String,
+    pub key_type: SdkKeyTypeApi,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+}
+```
+
+---
+
+## Configuration Structures
+
+### Server Configuration Layers
+
+**Location:** `crates/loom-server-config/src/`
+
+```rust
+/// Configuration precedence (higher overrides lower)
+pub enum Precedence {
+    Defaults = 10,       // Built-in defaults
+    ConfigFile = 20,     // /etc/loom/server.toml
+    Environment = 50,    // LOOM_SERVER_* env vars
+}
+
+/// Configuration source trait
+pub trait ConfigSource: Send + Sync {
+    fn name(&self) -> &'static str;
+    fn precedence(&self) -> Precedence;
+    fn load(&self) -> Result<ServerConfigLayer, ConfigError>;
+}
+
+/// Built-in defaults
+pub struct DefaultsSource;
+
+/// TOML file configuration
+pub struct TomlSource {
+    path: PathBuf,       // Default: /etc/loom/server.toml
+}
+
+/// Environment variable source
+/// Convention: LOOM_SERVER_<SECTION>_<FIELD>
+pub struct EnvSource;
+```
+
+**Configuration Sections:**
+- `HttpConfigLayer` - HTTP server settings (host, port, CORS)
+- `DatabaseConfigLayer` - SQLite connection settings
+- `AuthConfigLayer` - Authentication provider settings
+- `LlmConfigLayer` - LLM provider configuration
+- `WeaverConfigLayer` - Kubernetes provisioning settings
+- `SmtpConfigLayer` - Email server configuration
+- `OAuthConfigLayer` - OAuth provider settings
+- `GitHubAppConfigLayer` - GitHub App credentials
+- `GeoIpConfigLayer` - MaxMind GeoIP settings
+- `JobsConfigLayer` - Job scheduler settings
+- `SearchConfigLayer` - Search provider configuration
+- `PathsConfigLayer` - File system paths
+- `LoggingConfigLayer` - Log level and format
+- `AuditConfigLayer` - Audit logging settings
+- `ScimConfigLayer` - SCIM provisioning settings
+- `AnalyticsConfigLayer` - Product analytics settings
+
+---
+
+### Common Configuration Types
+
+**Location:** `crates/loom-common-config/src/`
+
+```rust
+/// Secret wrapper that prevents accidental logging
+/// Re-exported from loom-common-secret
+pub struct Secret<T> {
+    inner: T,
+}
+
+/// Secret string with automatic redaction
+pub struct SecretString(String);
+
+/// Load secret from environment with *_FILE suffix support
+pub fn load_secret_env(
+    key: &str
+) -> Result<SecretString, SecretEnvError>
+```
+
+**Purpose:** Secure handling of API keys, passwords, tokens
+
+**Features:**
+- Auto-redaction in Debug, Display, Serialize, tracing
+- `*_FILE` suffix support (reads from file path instead of value)
+- Zeroization on drop (secure memory clearing)
+
+---
+
+### CLI Configuration Types
+
+**Location:** `crates/loom-cli-config/src/`
+
+```rust
+/// CLI configuration with layered sources
+pub struct CliConfig {
+    pub server: ServerConfig,
+    pub llm: LlmConfig,
+    pub workspace: Option<PathBuf>,
+    pub auto_commit: AutoCommitConfig,
+}
+
+/// CLI configuration sources
+pub enum CliConfigSource {
+    Defaults,
+    UserConfig(PathBuf),     // ~/.config/loom/config.toml
+    ProjectConfig(PathBuf),  // .loom/config.toml
+    Env,
+    CliOverrides,            // Command-line args
+}
+```
+
+---
+
+## State Management Structures
+
+### Agent State Machine (Deep Dive)
+
+**Location:** `crates/loom-common-core/src/agent.rs`, `state.rs`
+
+**State Transitions:**
+```
+WaitingForUserInput --[UserInput]--> CallingLlm
+CallingLlm --[LlmEvent::Completed]--> ProcessingLlmResponse
+ProcessingLlmResponse --[has tools]--> ExecutingTools
+ProcessingLlmResponse --[no tools]--> WaitingForUserInput
+ExecutingTools --[all complete]--> PostToolsHook (if mutating)
+ExecutingTools --[all complete]--> CallingLlm (if read-only)
+PostToolsHook --[completed]--> CallingLlm
+CallingLlm --[LlmEvent::Error]--> Error
+Error --[RetryTimeoutFired]--> CallingLlm
+[any state] --[ShutdownRequested]--> ShuttingDown
+```
+
+**Agent Actions:**
+```rust
+pub enum AgentAction {
+    SendLlmRequest(LlmRequest),
+    ExecuteTools(Vec<ToolCall>),
+    RunPostToolsHook { completed_tools: Vec<CompletedToolInfo> },
+    WaitForInput,
+    DisplayMessage(String),
+    DisplayError(String),
+    Shutdown,
+}
+```
+
+**Tool Execution Tracking:**
+- `Pending`: Tool requested, waiting to start
+- `Running`: Tool executing, can report progress
+- `Completed`: Tool finished with success or error outcome
+
+**Mutating Tools Detection:**
+Tools like `edit_file` and `bash` are considered "mutating"
+and trigger the `PostToolsHook` state for auto-commit.
+
+---
+
+### Thread State Management
+
+**Thread Store Interface:**
+```rust
+#[async_trait]
+pub trait ThreadStore: Send + Sync {
+    async fn upsert(&self, thread: &Thread, expected_version: Option<u64>)
+        -> Result<Thread, DbError>;
+    async fn get(&self, id: &ThreadId) -> Result<Option<Thread>, DbError>;
+    async fn list(&self, workspace: Option<&str>, limit: u32, offset: u32)
+        -> Result<Vec<ThreadSummary>, DbError>;
+    async fn delete(&self, id: &ThreadId) -> Result<bool, DbError>;
+    async fn search(&self, query: &str, workspace: Option<&str>,
+        limit: u32, offset: u32) -> Result<Vec<ThreadSearchHit>, DbError>;
+}
+```
+
+**Optimistic Concurrency:**
+- `version` field increments on each update
+- `expected_version` parameter for conflict detection
+- Automatic retry on version mismatch
+
+---
+
+**✓ PHASE 3 COMPLETE**
+
+---
+
+**Phase 3 Status:** 100% Complete
+**Files Created:**
+- `analysis/03-data-structures.md` - This document
+
 **Documented:**
 - ✓ Core data types (Message, LLM, Tool, Agent State)
 - ✓ Thread persistence types
-- ✓ Database schemas (all migrations)
+- ✓ Database schemas (all 32 migrations)
+- ✓ API request/response shapes (Threads, Auth, Weaver, Feature Flags)
+- ✓ Configuration structures (Server, CLI, Common)
+- ✓ State management structures (Agent state machine, Thread store)
 
-**Remaining:**
-- API request/response shapes
-- Configuration structures
-- State management structures (deep dive)
+**Total Types Documented:** 150+ data structures
 
-**Next:** Continue documenting API shapes and configuration
+**Next Phase:** Phase 4 - Business Logic Analysis
