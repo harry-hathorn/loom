@@ -1,0 +1,30 @@
+Weaver Provisioning Flow
+sequenceDiagram
+    participant CLI
+    participant Server
+    participant Kubernetes
+    participant Registry
+
+    CLI->>Server: POST /weavers (image, env, resources)
+    Server->>Server: Validate request
+    Server->>Server: Generate weaver ID
+    Server->>Database: Insert weaver record
+
+    Server->>Kubernetes: Create Pod
+    Note over Kubernetes: - Pull container image<br/>- Inject secrets<br/>- Set resource limits
+
+    Kubernetes-->>Server: Pod created
+    Server-->>CLI: WeaverApiResponse (id, status: Pending)
+
+    Kubernetes->>Registry: Pull image
+    Kubernetes->>Kubernetes: Start container
+    Kubernetes-->>Server: Status: Running
+
+    Server->>CLI: WebSocket update (status: Running)
+
+    CLI->>CLI: Attach to weaver
+    Note over CLI: Execute commands remotely
+
+    Kubernetes->>Kubernetes: Container exits
+    Kubernetes-->>Server: Status: Succeeded
+    Server->>Database: Update weaver status

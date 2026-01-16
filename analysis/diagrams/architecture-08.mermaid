@@ -1,0 +1,58 @@
+graph TB
+    subgraph "Client SDK"
+        SDK[Feature Flag SDK]
+        Cache[Local Cache]
+    end
+
+    subgraph "Server"
+        API[Evaluation API]
+        FlagStore[Flag Store]
+        PersonStore[Person Store]
+        Evaluator[Evaluation Engine]
+        SSE[SSE Broadcaster]
+    end
+
+    subgraph "Evaluation Logic"
+        CheckEnabled[Check Enabled]
+        CheckWhitelist[Check Whitelist]
+        CheckRollout[Check Rollout %]
+        CheckRules[Check Rules]
+        CheckAttributes[Check Attributes]
+    end
+
+    SDK -->|1. Evaluate| API
+    API -->|2. Fetch Flag| FlagStore
+    API -->|3. Fetch Person| PersonStore
+
+    FlagStore --> Evaluator
+    PersonStore --> Evaluator
+
+    Evaluator --> CheckEnabled
+    CheckEnabled -->|disabled| Result[Return: false]
+    CheckEnabled -->|enabled| CheckWhitelist
+
+    CheckWhitelist -->|in whitelist| ResultEnabled[Return: true]
+    CheckWhitelist -->|not in whitelist| CheckRollout
+
+    CheckRollout -->|within %| ResultEnabled
+    CheckRollout -->|outside %| CheckRules
+
+    CheckRules -->|no rules| ResultDisabled[Return: false]
+    CheckRules -->|has rules| CheckAttributes
+
+    CheckAttributes -->|match| ResultEnabled
+    CheckAttributes -->|no match| ResultDisabled
+
+    FlagStore -.->|Flag Update| SSE
+    SSE -->|Push Update| Cache
+
+    API -->|Return Result| SDK
+    SDK -->|Update Cache| Cache
+
+    classDef client fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef server fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef logic fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+
+    class SDK,Cache client
+    class API,FlagStore,PersonStore,SSE server
+    class Evaluator,CheckEnabled,CheckWhitelist,CheckRollout,CheckRules,CheckAttributes logic

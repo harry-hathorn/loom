@@ -1,0 +1,24 @@
+Thread Persistence Flow
+sequenceDiagram
+    participant Agent
+    participant ThreadStore
+    participant Database
+
+    Agent->>ThreadStore: upsert(thread)
+    ThreadStore->>Database: SELECT thread BY id
+
+    alt Thread not found
+        ThreadStore->>Database: INSERT thread (version=1)
+    else Thread exists
+        ThreadStore->>ThreadStore: Check version
+        alt Version mismatch
+            ThreadStore-->>Agent: Err(VersionConflict)
+        else Version matches
+            ThreadStore->>ThreadStore: Increment version
+            ThreadStore->>Database: UPDATE thread
+            ThreadStore->>Database: UPDATE git_commits
+            ThreadStore->>Database: UPDATE threads_fts
+        end
+    end
+
+    ThreadStore-->>Agent: Ok(thread)

@@ -1,0 +1,29 @@
+Device Code Flow
+sequenceDiagram
+    participant CLI
+    participant Server
+    participant User
+    participant OAuthProvider
+
+    CLI->>Server: POST /auth/device/start
+    Server->>Server: Generate codes
+    Server-->>CLI: device_code, user_code, verification_url
+
+    CLI->>User: "Enter code XYZ at https://example.com"
+
+    User->>OAuthProvider: Visit verification URL
+    User->>OAuthProvider: Enter user code
+    OAuthProvider->>User: Show authorization
+    User->>OAuthProvider: Approve
+    OAuthProvider-->>Server: Webhook: code approved
+
+    loop Device polling
+        CLI->>Server: POST /auth/device/poll (device_code)
+        alt Not approved yet
+            Server-->>CLI: status: pending
+        else Approved
+            Server-->>CLI: status: completed, access_token
+        end
+    end
+
+    CLI->>CLI: Store credentials

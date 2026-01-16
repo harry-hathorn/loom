@@ -1,0 +1,53 @@
+graph TB
+    subgraph "Ingestion"
+        SDK[Analytics SDK]
+        API[Events API]
+    end
+
+    subgraph "Processing"
+        Validator[Event Validator]
+        PersonResolver[Person Resolver]
+        Queue[Event Queue]
+        Worker[Batch Worker]
+    end
+
+    subgraph "Storage"
+        EventStore[Events Table]
+        PersonStore[Persons Table]
+        PropertyStore[Properties Table]
+        Aggregations[Aggregated Data]
+    end
+
+    subgraph "Analysis"
+        Funnels[Funnel Analysis]
+        Retention[Retention Analysis]
+        Cohorts[Cohort Reports]
+    end
+
+    SDK -->|POST Events| API
+    API --> Validator
+    API -->|202 Accepted| SDK
+
+    Validator -->|Valid Events| PersonResolver
+    PersonResolver -->|Resolve/Create Person| PersonStore
+
+    PersonResolver --> Queue
+    Queue --> Worker
+
+    Worker --> EventStore
+    Worker --> PropertyStore
+    Worker --> Aggregations
+
+    Aggregations --> Funnels
+    Aggregations --> Retention
+    Aggregations --> Cohorts
+
+    classDef ingestion fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef processing fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef storage fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef analysis fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+
+    class SDK,API ingestion
+    class Validator,PersonResolver,Queue,Worker processing
+    class EventStore,PersonStore,PropertyStore,Aggregations storage
+    class Funnels,Retention,Cohorts analysis

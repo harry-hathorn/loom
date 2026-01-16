@@ -1,0 +1,25 @@
+Agent Conversation Flow
+stateDiagram-v2
+    [*] --> WaitingForUserInput: Agent created
+
+    WaitingForUserInput --> CallingLlm: User sends message
+    CallingLlm --> CallingLlm: LLM streaming text
+    CallingLlm --> ProcessingLlmResponse: LLM completes
+
+    ProcessingLlmResponse --> ExecutingTools: LLM requests tools
+    ProcessingLlmResponse --> WaitingForUserInput: LLM responds normally
+
+    ExecutingTools --> ExecutingTools: Tools running
+    ExecutingTools --> PostToolsHook: All tools complete (mutating)
+    ExecutingTools --> CallingLlm: All tools complete (read-only)
+
+    PostToolsHook --> CallingLlm: Hook complete
+
+    CallingLlm --> Error: LLM error
+    Error --> CallingLlm: Retry timeout
+    Error --> WaitingForUserInput: Max retries
+
+    WaitingForUserInput --> [*]: Shutdown
+    CallingLlm --> [*]: Shutdown
+    ExecutingTools --> [*]: Shutdown
+    Error --> [*]: Shutdown

@@ -1,0 +1,55 @@
+graph LR
+    subgraph "Loom Core"
+        Agent[Agent]
+        LLMRouter[LLM Router]
+    end
+
+    subgraph "LLM Service"
+        ProxyClient[ProxyLlmClient]
+        AnthropicClient[AnthropicClient]
+        OpenAIClient[OpenAIClient]
+        VertexClient[VertexClient]
+    end
+
+    subgraph "External APIs"
+        AnthropicAPI[Anthropic Claude API]
+        OpenAIAPI[OpenAI GPT API]
+        VertexAPI[Google Vertex AI]
+    end
+
+    subgraph "Server"
+        LLMProxy[LLM Proxy Service]
+    end
+
+    Agent -->|LlmRequest| LLMRouter
+    LLMRouter -->|Route based on config| ProxyClient
+    LLMRouter -->|Route based on config| AnthropicClient
+    LLMRouter -->|Route based on config| OpenAIClient
+    LLMRouter -->|Route based on config| VertexClient
+
+    ProxyClient -->|HTTP POST| LLMProxy
+    LLMProxy --> AnthropicAPI
+    LLMProxy --> OpenAIAPI
+    LLMProxy --> VertexAPI
+
+    AnthropicClient -->|HTTP POST| AnthropicAPI
+    OpenAIClient -->|HTTP POST| OpenAIAPI
+    VertexClient -->|HTTP POST| VertexAPI
+
+    AnthropicAPI -->|SSE Stream| AnthropicClient
+    OpenAIAPI -->|SSE Stream| OpenAIClient
+    VertexAPI -->|SSE Stream| VertexClient
+    LLMProxy -->|SSE Stream| ProxyClient
+
+    AnthropicClient -->|LlmEvent| Agent
+    OpenAIClient -->|LlmEvent| Agent
+    VertexClient -->|LlmEvent| Agent
+    ProxyClient -->|LlmEvent| Agent
+
+    classDef loom fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef service fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef external fill:#ffebee,stroke:#c62828,stroke-width:2px
+
+    class Agent,LLMRouter loom
+    class ProxyClient,AnthropicClient,OpenAIClient,VertexClient,LLMProxy service
+    class AnthropicAPI,OpenAIAPI,VertexAPI external

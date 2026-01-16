@@ -1,0 +1,24 @@
+Tool Execution Flow
+sequenceDiagram
+    participant Agent
+    participant ToolRegistry
+    participant Tool
+    participant Filesystem
+
+    Agent->>ToolRegistry: invoke(tool_name, args)
+    ToolRegistry->>Tool: invoke(args, context)
+
+    Tool->>Tool: Validate path in workspace
+    alt Path valid
+        Tool->>Filesystem: Read/Edit file
+        Filesystem-->>Tool: Result
+        Tool-->>ToolRegistry: Ok(output)
+    else Path invalid
+        Tool-->>ToolRegistry: Err(PathOutsideWorkspace)
+    end
+
+    ToolRegistry-->>Agent: Result
+
+    Agent->>Agent: Add tool result to conversation
+    Agent->>Agent: Check if all tools complete
+    Agent->>Agent: Determine next action

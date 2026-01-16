@@ -1,0 +1,68 @@
+graph TB
+    subgraph "Agent"
+        StateMachine[State Machine]
+        ToolRegistry[Tool Registry]
+    end
+
+    subgraph "Tools"
+        EditFile[edit_file]
+        ReadFile[read_file]
+        ListFiles[list_files]
+        Bash[bash]
+        Search[search]
+        Git[git]
+    end
+
+    subgraph "Security"
+        PathValidator[Path Validator]
+        WorkspaceRoot[Workspace Root]
+        TimeoutManager[Timeout Manager]
+    end
+
+    subgraph "Execution"
+        FileSystem[File System]
+        Shell[Shell Process]
+        GitRepo[Git Repository]
+    end
+
+    StateMachine -->|Invoke Tool| ToolRegistry
+    ToolRegistry -->|Route to| EditFile
+    ToolRegistry -->|Route to| ReadFile
+    ToolRegistry -->|Route to| ListFiles
+    ToolRegistry -->|Route to| Bash
+    ToolRegistry -->|Route to| Search
+    ToolRegistry -->|Route to| Git
+
+    EditFile --> PathValidator
+    ReadFile --> PathValidator
+    ListFiles --> PathValidator
+
+    PathValidator --> WorkspaceRoot
+
+    PathValidator -->|Valid| FileSystem
+    PathValidator -->|Invalid| Error[Return Error]
+
+    Bash --> TimeoutManager
+    TimeoutManager --> Shell
+
+    EditFile --> FileSystem
+    ReadFile --> FileSystem
+    ListFiles --> FileSystem
+    Git --> GitRepo
+
+    FileSystem -->|Result| ToolRegistry
+    Shell -->|Result| ToolRegistry
+    GitRepo -->|Result| ToolRegistry
+    Error --> ToolRegistry
+
+    ToolRegistry -->|Tool Results| StateMachine
+
+    classDef agent fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef tools fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef security fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef execution fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+
+    class StateMachine,ToolRegistry agent
+    class EditFile,ReadFile,ListFiles,Bash,Search,Git tools
+    class PathValidator,WorkspaceRoot,TimeoutManager security
+    class FileSystem,Shell,GitRepo execution

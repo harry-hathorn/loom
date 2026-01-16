@@ -1,0 +1,19 @@
+graph TB
+    PROVISIONER[loom-server-weaver]
+    K8S[loom-server-k8s]
+    SECRETS[loom-server-secrets]
+    WGTUNNEL[loom-server-wgtunnel]
+
+    WEAVER_SECRETS[loom-weaver-secrets]
+    SIDECAR[loom-weaver-audit-sidecar]
+    AUDIT_EBPF[loom-weaver-ebpf]
+
+    PROVISIONER --> K8S
+    PROVISIONER --> SECRETS
+    PROVISIONER --> WGTUNNEL
+
+    SECRETS --> WEAVER_SECRETS
+
+    SIDECAR --> AUDIT_EBPF
+
+

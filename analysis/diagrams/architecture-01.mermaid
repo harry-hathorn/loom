@@ -1,0 +1,56 @@
+graph TB
+    subgraph "Presentation Layer"
+        CLI[loom-cli]
+        Server[loom-server]
+        TUI[loom-tui-*]
+        Web[loom-web]
+    end
+
+    subgraph "API & Routing Layer"
+        TypedRouter[TypedRouter]
+        PublicRouter[PublicRouter]
+        AuthedRouter[AuthedRouter]
+        Middleware[Middleware Stack<br/>Auth/ABAC/Audit/Trace]
+    end
+
+    subgraph "Business Logic Layer"
+        AuthService[Auth Service]
+        LLMService[LLM Service]
+        WeaverProv[Weaver Provisioning]
+        FeatureFlags[Feature Flags]
+        Analytics[Analytics]
+        Secrets[Secrets]
+        SCM[SCM Integrations]
+        Jobs[Job Scheduler]
+    end
+
+    subgraph "Data Access Layer"
+        ThreadStore[ThreadStore]
+        SecretStore[SecretStore]
+        UserStore[UserStore]
+        FlagStore[FlagStore]
+        AnalyticsStore[AnalyticsStore]
+    end
+
+    subgraph "Database Layer"
+        SQLite[(SQLite Database)]
+        FTS5[(FTS5 Search)]
+        Migrations[Migrations]
+    end
+
+    subgraph "External Services"
+        Anthropic[Anthropic API]
+        OpenAI[OpenAI API]
+        Vertex[Vertex AI]
+        GitHub[GitHub API]
+        Kubernetes[Kubernetes]
+        Email[Email Provider]
+    end
+
+    subgraph "Common Libraries"
+        CoreTypes[Core Types]
+        ThreadPersist[Thread Persistence]
+        HTTPClient[HTTP Client]
+        SecretHandling[Secret Handling]
+        I18n[i18n]
+    end

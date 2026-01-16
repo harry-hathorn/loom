@@ -1,0 +1,23 @@
+Feature Flag Evaluation Flow
+sequenceDiagram
+    participant SDK
+    participant Server
+    participant Database
+
+    SDK->>Server: POST /flags/evaluate
+    Server->>Server: Parse request (person_id, flag_name)
+
+    Server->>Database: SELECT flag BY name
+    Database-->>Server: FeatureFlag (enabled, conditions)
+
+    Server->>Server: Evaluate conditions:
+    Note over Server: - Rollout percentage<br/>- Person whitelist<br/>- Attribute targeting
+
+    Server->>Database: SELECT person BY id
+    Database-->>Server: Person (attributes)
+
+    Server->>Server: Check matches:
+    Note over Server: - Is person in whitelist?<br/>- Within rollout %?<br/>- Attributes match?
+
+    Server-->>SDK: { enabled: bool, reason: string }
+    SDK->>SDK: Enable/disable feature

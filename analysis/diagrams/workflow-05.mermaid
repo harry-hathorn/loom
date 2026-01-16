@@ -1,0 +1,27 @@
+Auto-Commit Flow
+sequenceDiagram
+    participant Agent
+    participant AutoCommitService
+    participant Git
+
+    Agent->>AutoCommitService: RunPostToolsHook(completed_tools)
+    AutoCommitService->>AutoCommitService: Check for mutating tools
+
+    alt Mutating tools succeeded
+        AutoCommitService->>Git: git status --porcelain
+        Git-->>AutoCommitService: Changed files
+
+        alt Changes detected
+            AutoCommitService->>AutoCommitService: Generate commit message
+            AutoCommitService->>Git: git add <files>
+            AutoCommitService->>Git: git commit -m "message"
+            Git-->>AutoCommitService: Commit SHA
+            AutoCommitService-->>Agent: Success(sha)
+        else No changes
+            AutoCommitService-->>Agent: Skipped
+        end
+    else No mutating tools
+        AutoCommitService-->>Agent: Skipped
+    end
+
+    Agent->>Agent: Continue conversation

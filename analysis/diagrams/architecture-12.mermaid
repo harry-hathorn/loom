@@ -1,0 +1,99 @@
+graph TB
+    subgraph "Application Layer"
+        CLI[loom-cli]
+        Server[loom-server]
+        Web[loom-web]
+    end
+
+    subgraph "Service Layer"
+        Auth[loom-server-auth]
+        LLM[loom-server-llm-service]
+        DB[loom-server-db]
+        Secrets[loom-server-secrets]
+        Flags[loom-server-flags]
+        Analytics[loom-server-analytics]
+        Weaver[loom-server-weaver]
+        SCM[loom-server-scm]
+    end
+
+    subgraph "Common Layer"
+        Core[loom-common-core]
+        Thread[loom-thread]
+        HTTP[loom-common-http]
+        Secret[loom-common-secret]
+        I18n[loom-i18n]
+    end
+
+    subgraph "Tool Layer"
+        Tools[loom-cli-tools]
+        Edit[edit_file tool]
+        Bash[bash tool]
+    end
+
+    CLI --> Core
+    CLI --> Thread
+    CLI --> HTTP
+    CLI --> Tools
+    CLI --> Auth
+
+    Server --> Core
+    Server --> Thread
+    Server --> HTTP
+    Server --> Auth
+    Server --> LLM
+    Server --> DB
+    Server --> Secrets
+    Server --> Flags
+    Server --> Analytics
+    Server --> Weaver
+
+    Web --> Core
+    Web --> HTTP
+    Web --> Auth
+
+    Auth --> Core
+    Auth --> DB
+    Auth --> HTTP
+
+    LLM --> Core
+    LLM --> HTTP
+    LLM --> Secret
+
+    DB --> Core
+    DB --> Thread
+
+    Secrets --> Core
+    Secrets --> DB
+    Secrets --> Secret
+
+    Flags --> Core
+    Flags --> DB
+
+    Analytics --> Core
+    Analytics --> DB
+    Analytics --> I18n
+
+    Weaver --> Core
+    Weaver --> DB
+    Weaver --> Secrets
+    Weaver --> SCM
+
+    SCM --> Core
+    SCM --> DB
+
+    Tools --> Core
+    Tools --> Edit
+    Tools --> Bash
+
+    Edit --> Core
+    Bash --> Core
+
+    classDef app fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef service fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef common fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef tool fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+
+    class CLI,Server,Web app
+    class Auth,LLM,DB,Secrets,Flags,Analytics,Weaver,SCM service
+    class Core,Thread,HTTP,Secret,I18n common
+    class Tools,Edit,Bash tool

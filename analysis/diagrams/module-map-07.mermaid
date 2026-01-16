@@ -1,0 +1,19 @@
+graph TB
+    FLAGS[loom-flags]
+    FLAGS_CORE[loom-flags-core]
+    FLAGS_SERVER[loom-server-flags]
+
+    ANALYTICS[loom-analytics]
+    ANALYTICS_CORE[loom-analytics-core]
+    ANALYTICS_SERVER[loom-server-analytics]
+
+    FLAGS --> FLAGS_CORE
+    FLAGS --> FLAGS_SERVER
+
+    ANALYTICS --> ANALYTICS_CORE
+    ANALYTICS --> ANALYTICS_SERVER
+
+    FLAGS_SERVER --> COMMON_HTTP
+    ANALYTICS_SERVER --> COMMON_HTTP
+
+

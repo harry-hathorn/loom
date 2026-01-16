@@ -1,0 +1,50 @@
+stateDiagram-v2
+    [*] --> Creating: POST /weavers
+
+    Creating --> Pending: K8s Pod submitted
+    Creating --> [*]: Creation failed
+
+    Pending --> Running: Pod ready
+    Pending --> Failed: Image pull failed
+    Pending --> [*]: Timeout
+
+    Running --> Running: Container active
+    Running --> Succeeded: Exit code 0
+    Running --> Failed: Exit code != 0
+    Running --> [*]: TTL expired
+
+    Succeeded --> [*]: Cleanup
+    Failed --> [*]: Cleanup
+
+    note right of Creating
+        Validate request
+        Generate weaver ID
+        Create database record
+        Submit to K8s
+    end note
+
+    note right of Pending
+        Pull container image
+        Inject secrets
+        Start container
+    end note
+
+    note right of Running
+        Accept client connections
+        Execute commands
+        Stream output
+        Monitor health
+    end note
+
+    note right of Succeeded
+        Mark as completed
+        Cleanup K8s pod
+        Update database
+    end note
+
+    note right of Failed
+        Capture logs
+        Mark as failed
+        Cleanup K8s pod
+        Update database
+    end note

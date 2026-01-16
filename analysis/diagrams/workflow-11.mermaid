@@ -1,0 +1,18 @@
+Search Flow
+sequenceDiagram
+    participant CLI
+    participant Server
+    participant FTS5
+    participant Database
+
+    CLI->>Server: GET /threads/search?q=query
+    Server->>FTS5: SELECT FROM threads_fts WHERE threads_fts MATCH query
+    Note over FTS5: BM25 ranking algorithm
+
+    FTS5-->>Server: Thread IDs with scores
+    Server->>Database: SELECT threads WHERE id IN (...)
+    Database-->>Server: Thread data
+
+    Server->>Server: Filter by visibility
+    Server->>Server: Apply pagination
+    Server-->>CLI: SearchResponse (hits with scores)

@@ -1,0 +1,25 @@
+LLM Request Flow
+sequenceDiagram
+    participant CLI
+    participant ProxyLlmClient
+    participant Server
+    participant AnthropicAPI
+
+    CLI->>ProxyLlmClient: complete_streaming(request)
+    ProxyLlmClient->>Server: POST /llm/stream
+    Note over Server: Route to provider
+
+    Server->>AnthropicAPI: POST /v1/messages
+    Server->>Server: Stream SSE events
+
+    loop For each chunk
+        AnthropicAPI-->>Server: data chunk
+        Server-->>ProxyLlmClient: SSE event
+        ProxyLlmClient->>ProxyLlmClient: Parse delta
+        ProxyLlmClient-->>CLI: LlmEvent::TextDelta
+        CLI->>CLI: Display to user
+    end
+
+    AnthropicAPI-->>Server: message_stop
+    Server-->>ProxyLlmClient: LlmEvent::Completed
+    ProxyLlmClient-->>CLI: LlmResponse

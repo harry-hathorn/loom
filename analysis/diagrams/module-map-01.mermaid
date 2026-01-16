@@ -1,0 +1,60 @@
+graph TB
+    subgraph "Application Layer"
+        CLI[loom-cli]
+        SERVER[loom-server]
+        WEB[loom-web]
+        VSCODE[vscode-ext]
+    end
+
+    subgraph "Feature Layer"
+        CLI_TOOLS[loom-cli-tools]
+        CLI_CONFIG[loom-cli-config]
+        CLI_AUTH[loom-cli-credentials]
+        SERVER_API[loom-server-api]
+        SERVER_AUTH[loom-server-auth]
+        SERVER_LLM[loom-server-llm-*]
+        SERVER_WEAVER[loom-server-weaver]
+        TUI_APP[loom-tui-app]
+    end
+
+    subgraph "Common Layer"
+        COMMON_CORE[loom-common-core]
+        COMMON_THREAD[loom-common-thread]
+        COMMON_HTTP[loom-common-http]
+        COMMON_CONFIG[loom-common-config]
+        COMMON_SECRET[loom-common-secret]
+        COMMON_I18N[loom-common-i18n]
+    end
+
+    subgraph "Cross-Cutting"
+        FLAGS[loom-flags-*]
+        ANALYTICS[loom-analytics-*]
+        REDACT[loom-redact]
+    end
+
+    CLI --> CLI_TOOLS
+    CLI --> CLI_CONFIG
+    CLI --> COMMON_CORE
+    CLI --> COMMON_THREAD
+
+    SERVER --> SERVER_API
+    SERVER --> SERVER_AUTH
+    SERVER --> COMMON_CORE
+    SERVER --> COMMON_THREAD
+
+    SERVER_API --> SERVER_LLM
+    SERVER_API --> SERVER_WEAVER
+
+    CLI_TOOLS --> COMMON_CORE
+    CLI_CONFIG --> COMMON_CONFIG
+
+    SERVER_AUTH --> COMMON_CORE
+    SERVER_LLM --> COMMON_HTTP
+    SERVER_WEAVER --> COMMON_HTTP
+
+    TUI_APP --> COMMON_CORE
+
+    COMMON_THREAD --> COMMON_SECRET
+    COMMON_HTTP --> COMMON_CONFIG
+
+

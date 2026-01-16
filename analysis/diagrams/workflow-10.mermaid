@@ -1,0 +1,22 @@
+Analytics Event Flow
+sequenceDiagram
+    participant SDK
+    participant Server
+    participant Queue
+    participant Worker
+    participant Database
+
+    SDK->>Server: POST /analytics/events
+    Server->>Server: Validate events
+    Server->>Server: Resolve person ID:
+    Note over Server: - Check existing person<br/>- Create new if needed
+
+    Server->>Queue: Enqueue events
+    Server-->>SDK: 202 Accepted
+
+    Queue->>Worker: Dequeue batch
+    Worker->>Database: Insert events (bulk)
+    Worker->>Database: Update person properties
+    Worker->>Database: Trigger aggregations
+
+    Note over Database: - Funnel calculations<br/>- Retention analysis<br/>- Cohort reports

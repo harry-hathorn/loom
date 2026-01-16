@@ -1,0 +1,42 @@
+graph TB
+    APP[loom-tui-app]
+    CORE[loom-tui-core]
+    THEME[loom-tui-theme]
+
+    HEADER[loom-tui-widget-header]
+    INPUT[loom-tui-widget-input-box]
+    MARKDOWN[loom-tui-widget-markdown]
+    MESSAGES[loom-tui-widget-message-list]
+    MODAL[loom-tui-widget-modal]
+    SCROLL[loom-tui-widget-scrollable]
+    SPINNER[loom-tui-widget-spinner]
+    STATUS[loom-tui-widget-status-bar]
+    THREADS[loom-tui-widget-thread-list]
+    TOOLS[loom-tui-widget-tool-panel]
+
+    APP --> CORE
+    APP --> THEME
+
+    APP --> HEADER
+    APP --> INPUT
+    APP --> MARKDOWN
+    APP --> MESSAGES
+    APP --> MODAL
+    APP --> SCROLL
+    APP --> SPINNER
+    APP --> STATUS
+    APP --> THREADS
+    APP --> TOOLS
+
+    HEADER --> CORE
+    INPUT --> CORE
+    MARKDOWN --> CORE
+    MESSAGES --> CORE
+    MODAL --> CORE
+    SCROLL --> CORE
+    SPINNER --> CORE
+    STATUS --> CORE
+    THREADS --> CORE
+    TOOLS --> CORE
+
+

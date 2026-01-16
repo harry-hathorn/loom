@@ -1,0 +1,18 @@
+graph LR
+    SERVICE[loom-server-llm-service]
+    PROXY[loom-server-llm-proxy]
+    ANTHROPIC[loom-server-llm-anthropic]
+    OPENAI[loom-server-llm-openai]
+    VERTEX[loom-server-llm-vertex]
+
+    SERVICE --> ANTHROPIC
+    SERVICE --> OPENAI
+    SERVICE --> VERTEX
+    SERVICE --> PROXY
+
+    PROXY --> COMMON_HTTP
+    ANTHROPIC --> COMMON_HTTP
+    OPENAI --> COMMON_HTTP
+    VERTEX --> COMMON_HTTP
+
+

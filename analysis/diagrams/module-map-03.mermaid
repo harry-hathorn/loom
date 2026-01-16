@@ -1,0 +1,20 @@
+graph TB
+    AUTH[loom-server-auth]
+    DEVICE[loom-server-auth-devicecode]
+    GITHUB[loom-server-auth-github]
+    GOOGLE[loom-server-auth-google]
+    MAGIC[loom-server-auth-magiclink]
+    OKTA[loom-server-auth-okta]
+
+    AUTH --> DEVICE
+    AUTH --> GITHUB
+    AUTH --> GOOGLE
+    AUTH --> MAGIC
+    AUTH --> OKTA
+
+    GITHUB --> COMMON_HTTP
+    GOOGLE --> COMMON_HTTP
+    OKTA --> COMMON_HTTP
+    DEVICE --> COMMON_HTTP
+
+

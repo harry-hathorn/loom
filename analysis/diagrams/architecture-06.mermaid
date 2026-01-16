@@ -1,0 +1,76 @@
+graph TB
+    subgraph "Infrastructure Layer"
+        LB[Load Balancer]
+        K8s[Kubernetes Cluster]
+    end
+
+    subgraph "Application Layer"
+        Server1[Loom Server 1]
+        Server2[Loom Server 2]
+        ServerN[Loom Server N]
+    end
+
+    subgraph "Organization A"
+        OrgADB[(Org A DB)]
+        OrgANamespace[Org A K8s Namespace]
+        OrgAWeavers[Org A Weavers]
+        OrgASecrets[Org A Secrets]
+    end
+
+    subgraph "Organization B"
+        OrgBDB[(Org B DB)]
+        BNamespace[Org B K8s Namespace]
+        OrgBWeavers[Org B Weavers]
+        OrgBSecrets[Org B Secrets]
+    end
+
+    subgraph "Organization C"
+        OrgCDB[(Org C DB)]
+        CNamespace[Org C K8s Namespace]
+        OrgCWeavers[Org C Weavers]
+        OrgCSecrets[Org C Secrets]
+    end
+
+    LB --> Server1
+    LB --> Server2
+    LB --> ServerN
+
+    Server1 --> OrgADB
+    Server1 --> OrgBDB
+    Server1 --> OrgCDB
+
+    Server2 --> OrgADB
+    Server2 --> OrgBDB
+    Server2 --> OrgCDB
+
+    ServerN --> OrgADB
+    ServerN --> OrgBDB
+    ServerN --> OrgCDB
+
+    Server1 --> OrgANamespace
+    Server1 --> BNamespace
+    Server1 --> CNamespace
+
+    K8s --> OrgANamespace
+    K8s --> BNamespace
+    K8s --> CNamespace
+
+    OrgANamespace --> OrgAWeavers
+    BNamespace --> OrgBWeavers
+    CNamespace --> OrgCWeavers
+
+    Server1 --> OrgASecrets
+    Server1 --> OrgBSecrets
+    Server1 --> OrgCSecrets
+
+    classDef infra fill:#cfd8dc,stroke:#37474f,stroke-width:2px
+    classDef app fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    classDef orga fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef orgb fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef orgc fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+
+    class LB,K8s infra
+    class Server1,Server2,ServerN app
+    class OrgADB,OrgANamespace,OrgAWeavers,OrgASecrets orga
+    class OrgBDB,BNamespace,OrgBWeavers,OrgBSecrets orgb
+    class OrgCDB,CNamespace,OrgCWeavers,OrgCSecrets orgc

@@ -1,0 +1,52 @@
+stateDiagram-v2
+    [*] --> WaitingForUserInput: Agent Created
+
+    WaitingForUserInput --> CallingLlm: User sends message
+    WaitingForUserInput --> [*]: Shutdown
+
+    CallingLlm --> CallingLlm: LLM streaming text
+    CallingLlm --> ProcessingLlmResponse: LLM completes
+    CallingLlm --> Error: LLM error
+    CallingLlm --> [*]: Shutdown
+
+    ProcessingLlmResponse --> ExecutingTools: LLM requests tools
+    ProcessingLlmResponse --> WaitingForUserInput: LLM responds normally
+
+    ExecutingTools --> ExecutingTools: Tools running
+    ExecutingTools --> PostToolsHook: All tools complete (mutating)
+    ExecutingTools --> CallingLlm: All tools complete (read-only)
+    ExecutingTools --> [*]: Shutdown
+
+    PostToolsHook --> CallingLlm: Hook complete
+
+    Error --> CallingLlm: Retry (within limit)
+    Error --> WaitingForUserInput: Max retries exceeded
+    Error --> [*]: Shutdown
+
+    note right of WaitingForUserInput
+        Conversation context
+        User message queue
+    end note
+
+    note right of CallingLlm
+        LLM API request
+        Streaming response
+        Retry logic
+    end note
+
+    note right of ExecutingTools
+        Parallel tool execution
+        Path validation
+        Timeout handling
+    end note
+
+    note right of PostToolsHook
+        Auto-commit (git)
+        Workspace sync
+    end note
+
+    note right of Error
+        Error classification
+        Retry timeout
+        User notification
+    end note

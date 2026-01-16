@@ -1,0 +1,33 @@
+sequenceDiagram
+    participant Client
+    participant AuthMiddleware
+    participant SessionStore
+    participant UserStore
+    participant ABACMiddleware
+    participant Handler
+
+    Client->>AuthMiddleware: Request + Token
+    AuthMiddleware->>AuthMiddleware: Extract token
+    AuthMiddleware->>SessionStore: Validate session
+    SessionStore-->>AuthMiddleware: Session data
+
+    alt Valid session
+        AuthMiddleware->>UserStore: Get user
+        UserStore-->>AuthMiddleware: User
+        AuthMiddleware->>AuthMiddleware: Create AuthContext
+        AuthMiddleware->>ABACMiddleware: Request + AuthContext
+
+        ABACMiddleware->>ABACMiddleware: Check required roles
+        ABACMiddleware->>ABACMiddleware: Check resource ownership
+        ABACMiddleware->>ABACMiddleware: Check org membership
+
+        alt Authorized
+            ABACMiddleware-->>Handler: Request + AuthContext
+            Handler-->>Client: Response
+        else Unauthorized
+            ABACMiddleware-->>Client: 403 Forbidden
+        end
+
+    else Invalid/missing session
+        AuthMiddleware-->>Client: 401 Unauthorized
+    end

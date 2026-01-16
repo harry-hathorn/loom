@@ -1,0 +1,14 @@
+graph TB
+    ENGINE[loom-wgtunnel-engine]
+    CONN[loom-wgtunnel-conn]
+    DERP[loom-wgtunnel-derp]
+    COMMON[loom-wgtunnel-common]
+
+    ENGINE --> CONN
+    ENGINE --> DERP
+    ENGINE --> COMMON
+
+    CONN --> COMMON
+    DERP --> COMMON
+
+

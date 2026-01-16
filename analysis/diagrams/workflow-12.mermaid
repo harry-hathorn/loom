@@ -1,0 +1,19 @@
+Secret Injection Flow
+sequenceDiagram
+    participant Server
+    participant SecretStore
+    participant Kubernetes
+    participant Weaver
+
+    Server->>SecretStore: GET secrets (repo_id, org_id)
+    SecretStore->>SecretStore: Decrypt secrets
+    SecretStore-->>Server: Secret map
+
+    Server->>Kubernetes: Create Pod with secrets
+    Note over Kubernetes: Inject as env vars<br/>or volume mounts
+
+    Kubernetes->>Weaver: Start container
+    Note over Weaver: Secrets available as<br/>environment variables
+
+    Weaver->>Weaver: Access secrets via env
+    Note over Weaver: - LOOM_SECRET_KEY=***<br/>- GIT_TOKEN=***

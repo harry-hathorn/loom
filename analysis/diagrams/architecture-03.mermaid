@@ -1,0 +1,122 @@
+erDiagram
+    THREAD ||--o{ MESSAGE : has
+    THREAD ||--o{ GIT_COMMIT : tracks
+    THREAD }o--|| PERSON : owned_by
+    THREAD }o--|| WORKSPACE : belongs_to
+
+    PERSON ||--o{ PERSON_PROPERTY : has
+    PERSON ||--o{ ANALYTICS_EVENT : generates
+    PERSON }o--|| ORGANIZATION : member_of
+
+    ORGANIZATION ||--o{ FEATURE_FLAG : configures
+    ORGANIZATION ||--o{ SECRET : stores
+    ORGANIZATION ||--o{ SCM_REPO : manages
+
+    USER ||--o{ SESSION : creates
+    USER ||--o{ AUDIT_EVENT : performs
+
+    SESSION ||--o{ SESSION_TOKEN : contains
+
+    FEATURE_FLAG ||--o{ FEATURE_FLAG_CONDITION : has
+    FEATURE_FLAG ||--o{ FEATURE_FLAG_OVERRIDE : allows
+
+    WEAVER }o--|| PERSON : created_by
+    WEAVER }o--|| ORGANIZATION : belongs_to
+
+    ANALYTICS_EVENT ||--o{ ANALYTICS_EVENT_PROPERTY : contains
+
+    THREAD {
+        uuid id PK
+        uuid workspace_id FK
+        uuid person_id FK
+        string title
+        text summary
+        string visibility
+        boolean is_pinned
+        integer version
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    MESSAGE {
+        uuid id PK
+        uuid thread_id FK
+        string role
+        text content
+        json tool_calls
+        timestamp created_at
+    }
+
+    GIT_COMMIT {
+        uuid id PK
+        uuid thread_id FK
+        string commit_sha
+        string message
+        timestamp committed_at
+    }
+
+    PERSON {
+        uuid id PK
+        string anonymous_id
+        string email
+        json properties
+        timestamp merged_at
+        timestamp created_at
+    }
+
+    USER {
+        uuid id PK
+        string email
+        string display_name
+        string avatar_url
+        timestamp created_at
+    }
+
+    ORGANIZATION {
+        uuid id PK
+        string name
+        string slug
+        timestamp created_at
+    }
+
+    FEATURE_FLAG {
+        uuid id PK
+        uuid org_id FK
+        string name
+        string description
+        boolean enabled
+        integer rollout_percentage
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SECRET {
+        uuid id PK
+        uuid org_id FK
+        uuid repo_id FK
+        string key
+        text encrypted_value
+        text encrypted_dek
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    WEAVER {
+        uuid id PK
+        uuid person_id FK
+        uuid org_id FK
+        string container_image
+        json env_vars
+        string status
+        timestamp created_at
+        timestamp expires_at
+    }
+
+    ANALYTICS_EVENT {
+        uuid id PK
+        uuid person_id FK
+        string event_name
+        json properties
+        timestamp occurred_at
+    }

@@ -1,0 +1,26 @@
+Authentication Flow (OAuth)
+sequenceDiagram
+    participant User
+    participant CLI
+    participant Server
+    participant OAuthProvider
+
+    User->>CLI: loom login
+    CLI->>Server: GET /auth/github/start
+    Server->>Server: Generate state token
+    Server->>Server: Store in session
+    Server-->>CLI: 302 Redirect to GitHub
+    CLI->>User: Open browser
+
+    User->>OAuthProvider: Visit auth URL
+    OAuthProvider->>User: Display approval page
+    User->>OAuthProvider: Authorize
+    OAuthProvider-->>Server: Callback with code
+    Server->>OAuthProvider: Exchange code for token
+    OAuthProvider-->>Server: Access token
+    Server->>Server: Fetch user profile
+    Server->>Server: Create/update user
+    Server->>Server: Create session
+    Server-->>User: Redirect to success page
+    Server-->>CLI: Session token
+    CLI->>CLI: Store credentials
