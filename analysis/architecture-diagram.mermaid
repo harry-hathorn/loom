@@ -1,0 +1,950 @@
+# Loom System Architecture Diagrams
+
+**Location:** `analysis/architecture-diagram.mermaid`
+**Phase:** 6 - Architecture & Patterns
+**Status:** COMPLETE
+
+---
+
+## 1. Overall System Architecture
+
+```mermaid
+graph TB
+    subgraph "Presentation Layer"
+        CLI[loom-cli]
+        Server[loom-server]
+        TUI[loom-tui-*]
+        Web[loom-web]
+    end
+
+    subgraph "API & Routing Layer"
+        TypedRouter[TypedRouter]
+        PublicRouter[PublicRouter]
+        AuthedRouter[AuthedRouter]
+        Middleware[Middleware Stack<br/>Auth/ABAC/Audit/Trace]
+    end
+
+    subgraph "Business Logic Layer"
+        AuthService[Auth Service]
+        LLMService[LLM Service]
+        WeaverProv[Weaver Provisioning]
+        FeatureFlags[Feature Flags]
+        Analytics[Analytics]
+        Secrets[Secrets]
+        SCM[SCM Integrations]
+        Jobs[Job Scheduler]
+    end
+
+    subgraph "Data Access Layer"
+        ThreadStore[ThreadStore]
+        SecretStore[SecretStore]
+        UserStore[UserStore]
+        FlagStore[FlagStore]
+        AnalyticsStore[AnalyticsStore]
+    end
+
+    subgraph "Database Layer"
+        SQLite[(SQLite Database)]
+        FTS5[(FTS5 Search)]
+        Migrations[Migrations]
+    end
+
+    subgraph "External Services"
+        Anthropic[Anthropic API]
+        OpenAI[OpenAI API]
+        Vertex[Vertex AI]
+        GitHub[GitHub API]
+        Kubernetes[Kubernetes]
+        Email[Email Provider]
+    end
+
+    subgraph "Common Libraries"
+        CoreTypes[Core Types]
+        ThreadPersist[Thread Persistence]
+        HTTPClient[HTTP Client]
+        SecretHandling[Secret Handling]
+        I18n[i18n]
+    end
+
+    %% Connections
+    CLI -->|HTTP/JSON| TypedRouter
+    Server --> TypedRouter
+    TUI --> TypedRouter
+    Web --> TypedRouter
+
+    TypedRouter --> PublicRouter
+    TypedRouter --> AuthedRouter
+    PublicRouter --> Middleware
+    AuthedRouter --> Middleware
+
+    Middleware --> AuthService
+    Middleware --> LLMService
+    Middleware --> WeaverProv
+    Middleware --> FeatureFlags
+    Middleware --> Analytics
+    Middleware --> Secrets
+    Middleware --> SCM
+
+    AuthService --> UserStore
+    LLMService --> ThreadStore
+    WeaverProv --> ThreadStore
+    FeatureFlags --> FlagStore
+    Analytics --> AnalyticsStore
+    Secrets --> SecretStore
+    SCM --> ThreadStore
+
+    ThreadStore --> SQLite
+    SecretStore --> SQLite
+    UserStore --> SQLite
+    FlagStore --> SQLite
+    AnalyticsStore --> SQLite
+
+    SQLite --> FTS5
+    Migrations --> SQLite
+
+    LLMService --> Anthropic
+    LLMService --> OpenAI
+    LLMService --> Vertex
+
+    WeaverProv --> Kubernetes
+    AuthService --> GitHub
+    Jobs --> Email
+
+    CoreTypes -.->|shared by all| TypedRouter
+    ThreadPersist -.->|shared by all| ThreadStore
+    HTTPClient -.->|shared by all| LLMService
+    SecretHandling -.->|shared by all| Secrets
+    I18n -.->|shared by all| Server
+
+    classDef presentation fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef api fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef business fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef data fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef database fill:#cfd8dc,stroke:#37474f,stroke-width:2px
+    classDef external fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    classDef common fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    class CLI,Server,TUI,Web presentation
+    class TypedRouter,PublicRouter,AuthedRouter,Middleware api
+    class AuthService,LLMService,WeaverProv,FeatureFlags,Analytics,Secrets,SCM,Jobs business
+    class ThreadStore,SecretStore,UserStore,FlagStore,AnalyticsStore data
+    class SQLite,FTS5,Migrations database
+    class Anthropic,OpenAI,Vertex,GitHub,Kubernetes,Email external
+    class CoreTypes,ThreadPersist,HTTPClient,SecretHandling,I18n common
+```
+
+---
+
+## 2. Agent State Machine Architecture
+
+```mermaid
+stateDiagram-v2
+    [*] --> WaitingForUserInput: Agent Created
+
+    WaitingForUserInput --> CallingLlm: User sends message
+    WaitingForUserInput --> [*]: Shutdown
+
+    CallingLlm --> CallingLlm: LLM streaming text
+    CallingLlm --> ProcessingLlmResponse: LLM completes
+    CallingLlm --> Error: LLM error
+    CallingLlm --> [*]: Shutdown
+
+    ProcessingLlmResponse --> ExecutingTools: LLM requests tools
+    ProcessingLlmResponse --> WaitingForUserInput: LLM responds normally
+
+    ExecutingTools --> ExecutingTools: Tools running
+    ExecutingTools --> PostToolsHook: All tools complete (mutating)
+    ExecutingTools --> CallingLlm: All tools complete (read-only)
+    ExecutingTools --> [*]: Shutdown
+
+    PostToolsHook --> CallingLlm: Hook complete
+
+    Error --> CallingLlm: Retry (within limit)
+    Error --> WaitingForUserInput: Max retries exceeded
+    Error --> [*]: Shutdown
+
+    note right of WaitingForUserInput
+        Conversation context
+        User message queue
+    end note
+
+    note right of CallingLlm
+        LLM API request
+        Streaming response
+        Retry logic
+    end note
+
+    note right of ExecutingTools
+        Parallel tool execution
+        Path validation
+        Timeout handling
+    end note
+
+    note right of PostToolsHook
+        Auto-commit (git)
+        Workspace sync
+    end note
+
+    note right of Error
+        Error classification
+        Retry timeout
+        User notification
+    end note
+```
+
+---
+
+## 3. Database Schema Architecture
+
+```mermaid
+erDiagram
+    THREAD ||--o{ MESSAGE : has
+    THREAD ||--o{ GIT_COMMIT : tracks
+    THREAD }o--|| PERSON : owned_by
+    THREAD }o--|| WORKSPACE : belongs_to
+
+    PERSON ||--o{ PERSON_PROPERTY : has
+    PERSON ||--o{ ANALYTICS_EVENT : generates
+    PERSON }o--|| ORGANIZATION : member_of
+
+    ORGANIZATION ||--o{ FEATURE_FLAG : configures
+    ORGANIZATION ||--o{ SECRET : stores
+    ORGANIZATION ||--o{ SCM_REPO : manages
+
+    USER ||--o{ SESSION : creates
+    USER ||--o{ AUDIT_EVENT : performs
+
+    SESSION ||--o{ SESSION_TOKEN : contains
+
+    FEATURE_FLAG ||--o{ FEATURE_FLAG_CONDITION : has
+    FEATURE_FLAG ||--o{ FEATURE_FLAG_OVERRIDE : allows
+
+    WEAVER }o--|| PERSON : created_by
+    WEAVER }o--|| ORGANIZATION : belongs_to
+
+    ANALYTICS_EVENT ||--o{ ANALYTICS_EVENT_PROPERTY : contains
+
+    THREAD {
+        uuid id PK
+        uuid workspace_id FK
+        uuid person_id FK
+        string title
+        text summary
+        string visibility
+        boolean is_pinned
+        integer version
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at
+    }
+
+    MESSAGE {
+        uuid id PK
+        uuid thread_id FK
+        string role
+        text content
+        json tool_calls
+        timestamp created_at
+    }
+
+    GIT_COMMIT {
+        uuid id PK
+        uuid thread_id FK
+        string commit_sha
+        string message
+        timestamp committed_at
+    }
+
+    PERSON {
+        uuid id PK
+        string anonymous_id
+        string email
+        json properties
+        timestamp merged_at
+        timestamp created_at
+    }
+
+    USER {
+        uuid id PK
+        string email
+        string display_name
+        string avatar_url
+        timestamp created_at
+    }
+
+    ORGANIZATION {
+        uuid id PK
+        string name
+        string slug
+        timestamp created_at
+    }
+
+    FEATURE_FLAG {
+        uuid id PK
+        uuid org_id FK
+        string name
+        string description
+        boolean enabled
+        integer rollout_percentage
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SECRET {
+        uuid id PK
+        uuid org_id FK
+        uuid repo_id FK
+        string key
+        text encrypted_value
+        text encrypted_dek
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    WEAVER {
+        uuid id PK
+        uuid person_id FK
+        uuid org_id FK
+        string container_image
+        json env_vars
+        string status
+        timestamp created_at
+        timestamp expires_at
+    }
+
+    ANALYTICS_EVENT {
+        uuid id PK
+        uuid person_id FK
+        string event_name
+        json properties
+        timestamp occurred_at
+    }
+```
+
+---
+
+## 4. LLM Provider Architecture
+
+```mermaid
+graph LR
+    subgraph "Loom Core"
+        Agent[Agent]
+        LLMRouter[LLM Router]
+    end
+
+    subgraph "LLM Service"
+        ProxyClient[ProxyLlmClient]
+        AnthropicClient[AnthropicClient]
+        OpenAIClient[OpenAIClient]
+        VertexClient[VertexClient]
+    end
+
+    subgraph "External APIs"
+        AnthropicAPI[Anthropic Claude API]
+        OpenAIAPI[OpenAI GPT API]
+        VertexAPI[Google Vertex AI]
+    end
+
+    subgraph "Server"
+        LLMProxy[LLM Proxy Service]
+    end
+
+    Agent -->|LlmRequest| LLMRouter
+    LLMRouter -->|Route based on config| ProxyClient
+    LLMRouter -->|Route based on config| AnthropicClient
+    LLMRouter -->|Route based on config| OpenAIClient
+    LLMRouter -->|Route based on config| VertexClient
+
+    ProxyClient -->|HTTP POST| LLMProxy
+    LLMProxy --> AnthropicAPI
+    LLMProxy --> OpenAIAPI
+    LLMProxy --> VertexAPI
+
+    AnthropicClient -->|HTTP POST| AnthropicAPI
+    OpenAIClient -->|HTTP POST| OpenAIAPI
+    VertexClient -->|HTTP POST| VertexAPI
+
+    AnthropicAPI -->|SSE Stream| AnthropicClient
+    OpenAIAPI -->|SSE Stream| OpenAIClient
+    VertexAPI -->|SSE Stream| VertexClient
+    LLMProxy -->|SSE Stream| ProxyClient
+
+    AnthropicClient -->|LlmEvent| Agent
+    OpenAIClient -->|LlmEvent| Agent
+    VertexClient -->|LlmEvent| Agent
+    ProxyClient -->|LlmEvent| Agent
+
+    classDef loom fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef service fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef external fill:#ffebee,stroke:#c62828,stroke-width:2px
+
+    class Agent,LLMRouter loom
+    class ProxyClient,AnthropicClient,OpenAIClient,VertexClient,LLMProxy service
+    class AnthropicAPI,OpenAIAPI,VertexAPI external
+```
+
+---
+
+## 5. Authentication & Authorization Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant AuthMiddleware
+    participant SessionStore
+    participant UserStore
+    participant ABACMiddleware
+    participant Handler
+
+    Client->>AuthMiddleware: Request + Token
+    AuthMiddleware->>AuthMiddleware: Extract token
+    AuthMiddleware->>SessionStore: Validate session
+    SessionStore-->>AuthMiddleware: Session data
+
+    alt Valid session
+        AuthMiddleware->>UserStore: Get user
+        UserStore-->>AuthMiddleware: User
+        AuthMiddleware->>AuthMiddleware: Create AuthContext
+        AuthMiddleware->>ABACMiddleware: Request + AuthContext
+
+        ABACMiddleware->>ABACMiddleware: Check required roles
+        ABACMiddleware->>ABACMiddleware: Check resource ownership
+        ABACMiddleware->>ABACMiddleware: Check org membership
+
+        alt Authorized
+            ABACMiddleware-->>Handler: Request + AuthContext
+            Handler-->>Client: Response
+        else Unauthorized
+            ABACMiddleware-->>Client: 403 Forbidden
+        end
+
+    else Invalid/missing session
+        AuthMiddleware-->>Client: 401 Unauthorized
+    end
+```
+
+---
+
+## 6. Multi-Tenant Architecture
+
+```mermaid
+graph TB
+    subgraph "Infrastructure Layer"
+        LB[Load Balancer]
+        K8s[Kubernetes Cluster]
+    end
+
+    subgraph "Application Layer"
+        Server1[Loom Server 1]
+        Server2[Loom Server 2]
+        ServerN[Loom Server N]
+    end
+
+    subgraph "Organization A"
+        OrgADB[(Org A DB)]
+        OrgANamespace[Org A K8s Namespace]
+        OrgAWeavers[Org A Weavers]
+        OrgASecrets[Org A Secrets]
+    end
+
+    subgraph "Organization B"
+        OrgBDB[(Org B DB)]
+        BNamespace[Org B K8s Namespace]
+        OrgBWeavers[Org B Weavers]
+        OrgBSecrets[Org B Secrets]
+    end
+
+    subgraph "Organization C"
+        OrgCDB[(Org C DB)]
+        CNamespace[Org C K8s Namespace]
+        OrgCWeavers[Org C Weavers]
+        OrgCSecrets[Org C Secrets]
+    end
+
+    LB --> Server1
+    LB --> Server2
+    LB --> ServerN
+
+    Server1 --> OrgADB
+    Server1 --> OrgBDB
+    Server1 --> OrgCDB
+
+    Server2 --> OrgADB
+    Server2 --> OrgBDB
+    Server2 --> OrgCDB
+
+    ServerN --> OrgADB
+    ServerN --> OrgBDB
+    ServerN --> OrgCDB
+
+    Server1 --> OrgANamespace
+    Server1 --> BNamespace
+    Server1 --> CNamespace
+
+    K8s --> OrgANamespace
+    K8s --> BNamespace
+    K8s --> CNamespace
+
+    OrgANamespace --> OrgAWeavers
+    BNamespace --> OrgBWeavers
+    CNamespace --> OrgCWeavers
+
+    Server1 --> OrgASecrets
+    Server1 --> OrgBSecrets
+    Server1 --> OrgCSecrets
+
+    classDef infra fill:#cfd8dc,stroke:#37474f,stroke-width:2px
+    classDef app fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    classDef orga fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef orgb fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef orgc fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+
+    class LB,K8s infra
+    class Server1,Server2,ServerN app
+    class OrgADB,OrgANamespace,OrgAWeavers,OrgASecrets orga
+    class OrgBDB,BNamespace,OrgBWeavers,OrgBSecrets orgb
+    class OrgCDB,CNamespace,OrgCWeavers,OrgCSecrets orgc
+```
+
+---
+
+## 7. Security Architecture
+
+```mermaid
+graph TB
+    subgraph "Request Flow"
+        Request[Incoming Request]
+    end
+
+    subgraph "Security Layers"
+        TLS[TLS Termination]
+        RateLimit[Rate Limiting]
+        Auth[Authentication]
+        ABAC[Authorization]
+        Audit[Audit Logging]
+        SecretRedact[Secret Redaction]
+    end
+
+    subgraph "Data Protection"
+        Encryption[Envelope Encryption]
+        KeyRotation[Key Rotation]
+        SecretStore[Secret Storage]
+    end
+
+    subgraph "Infrastructure Security"
+        NetworkPolicies[Network Policies]
+        PodSecurity[Pod Security]
+        RBAC[K8s RBAC]
+    end
+
+    Request --> TLS
+    TLS --> RateLimit
+    RateLimit --> Auth
+    Auth --> ABAC
+    ABAC --> Handler[Request Handler]
+    Handler --> Audit
+    Handler --> SecretRedact
+
+    SecretRedact --> Encryption
+    Encryption --> SecretStore
+    KeyRotation --> Encryption
+
+    ABAC --> NetworkPolicies
+    Handler --> PodSecurity
+    PodSecurity --> RBAC
+
+    classDef flow fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef security fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef data fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef infra fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+
+    class Request flow
+    class TLS,RateLimit,Auth,ABAC,Audit,SecretRedact security
+    class Encryption,KeyRotation,SecretStore data
+    class NetworkPolicies,PodSecurity,RBAC infra
+```
+
+---
+
+## 8. Feature Flag Evaluation Architecture
+
+```mermaid
+graph TB
+    subgraph "Client SDK"
+        SDK[Feature Flag SDK]
+        Cache[Local Cache]
+    end
+
+    subgraph "Server"
+        API[Evaluation API]
+        FlagStore[Flag Store]
+        PersonStore[Person Store]
+        Evaluator[Evaluation Engine]
+        SSE[SSE Broadcaster]
+    end
+
+    subgraph "Evaluation Logic"
+        CheckEnabled[Check Enabled]
+        CheckWhitelist[Check Whitelist]
+        CheckRollout[Check Rollout %]
+        CheckRules[Check Rules]
+        CheckAttributes[Check Attributes]
+    end
+
+    SDK -->|1. Evaluate| API
+    API -->|2. Fetch Flag| FlagStore
+    API -->|3. Fetch Person| PersonStore
+
+    FlagStore --> Evaluator
+    PersonStore --> Evaluator
+
+    Evaluator --> CheckEnabled
+    CheckEnabled -->|disabled| Result[Return: false]
+    CheckEnabled -->|enabled| CheckWhitelist
+
+    CheckWhitelist -->|in whitelist| ResultEnabled[Return: true]
+    CheckWhitelist -->|not in whitelist| CheckRollout
+
+    CheckRollout -->|within %| ResultEnabled
+    CheckRollout -->|outside %| CheckRules
+
+    CheckRules -->|no rules| ResultDisabled[Return: false]
+    CheckRules -->|has rules| CheckAttributes
+
+    CheckAttributes -->|match| ResultEnabled
+    CheckAttributes -->|no match| ResultDisabled
+
+    FlagStore -.->|Flag Update| SSE
+    SSE -->|Push Update| Cache
+
+    API -->|Return Result| SDK
+    SDK -->|Update Cache| Cache
+
+    classDef client fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef server fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef logic fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+
+    class SDK,Cache client
+    class API,FlagStore,PersonStore,SSE server
+    class Evaluator,CheckEnabled,CheckWhitelist,CheckRollout,CheckRules,CheckAttributes logic
+```
+
+---
+
+## 9. Analytics Processing Architecture
+
+```mermaid
+graph TB
+    subgraph "Ingestion"
+        SDK[Analytics SDK]
+        API[Events API]
+    end
+
+    subgraph "Processing"
+        Validator[Event Validator]
+        PersonResolver[Person Resolver]
+        Queue[Event Queue]
+        Worker[Batch Worker]
+    end
+
+    subgraph "Storage"
+        EventStore[Events Table]
+        PersonStore[Persons Table]
+        PropertyStore[Properties Table]
+        Aggregations[Aggregated Data]
+    end
+
+    subgraph "Analysis"
+        Funnels[Funnel Analysis]
+        Retention[Retention Analysis]
+        Cohorts[Cohort Reports]
+    end
+
+    SDK -->|POST Events| API
+    API --> Validator
+    API -->|202 Accepted| SDK
+
+    Validator -->|Valid Events| PersonResolver
+    PersonResolver -->|Resolve/Create Person| PersonStore
+
+    PersonResolver --> Queue
+    Queue --> Worker
+
+    Worker --> EventStore
+    Worker --> PropertyStore
+    Worker --> Aggregations
+
+    Aggregations --> Funnels
+    Aggregations --> Retention
+    Aggregations --> Cohorts
+
+    classDef ingestion fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef processing fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef storage fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef analysis fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+
+    class SDK,API ingestion
+    class Validator,PersonResolver,Queue,Worker processing
+    class EventStore,PersonStore,PropertyStore,Aggregations storage
+    class Funnels,Retention,Cohorts analysis
+```
+
+---
+
+## 10. Tool Execution Architecture
+
+```mermaid
+graph TB
+    subgraph "Agent"
+        StateMachine[State Machine]
+        ToolRegistry[Tool Registry]
+    end
+
+    subgraph "Tools"
+        EditFile[edit_file]
+        ReadFile[read_file]
+        ListFiles[list_files]
+        Bash[bash]
+        Search[search]
+        Git[git]
+    end
+
+    subgraph "Security"
+        PathValidator[Path Validator]
+        WorkspaceRoot[Workspace Root]
+        TimeoutManager[Timeout Manager]
+    end
+
+    subgraph "Execution"
+        FileSystem[File System]
+        Shell[Shell Process]
+        GitRepo[Git Repository]
+    end
+
+    StateMachine -->|Invoke Tool| ToolRegistry
+    ToolRegistry -->|Route to| EditFile
+    ToolRegistry -->|Route to| ReadFile
+    ToolRegistry -->|Route to| ListFiles
+    ToolRegistry -->|Route to| Bash
+    ToolRegistry -->|Route to| Search
+    ToolRegistry -->|Route to| Git
+
+    EditFile --> PathValidator
+    ReadFile --> PathValidator
+    ListFiles --> PathValidator
+
+    PathValidator --> WorkspaceRoot
+
+    PathValidator -->|Valid| FileSystem
+    PathValidator -->|Invalid| Error[Return Error]
+
+    Bash --> TimeoutManager
+    TimeoutManager --> Shell
+
+    EditFile --> FileSystem
+    ReadFile --> FileSystem
+    ListFiles --> FileSystem
+    Git --> GitRepo
+
+    FileSystem -->|Result| ToolRegistry
+    Shell -->|Result| ToolRegistry
+    GitRepo -->|Result| ToolRegistry
+    Error --> ToolRegistry
+
+    ToolRegistry -->|Tool Results| StateMachine
+
+    classDef agent fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef tools fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef security fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef execution fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+
+    class StateMachine,ToolRegistry agent
+    class EditFile,ReadFile,ListFiles,Bash,Search,Git tools
+    class PathValidator,WorkspaceRoot,TimeoutManager security
+    class FileSystem,Shell,GitRepo execution
+```
+
+---
+
+## 11. Weaver Lifecycle Architecture
+
+```mermaid
+stateDiagram-v2
+    [*] --> Creating: POST /weavers
+
+    Creating --> Pending: K8s Pod submitted
+    Creating --> [*]: Creation failed
+
+    Pending --> Running: Pod ready
+    Pending --> Failed: Image pull failed
+    Pending --> [*]: Timeout
+
+    Running --> Running: Container active
+    Running --> Succeeded: Exit code 0
+    Running --> Failed: Exit code != 0
+    Running --> [*]: TTL expired
+
+    Succeeded --> [*]: Cleanup
+    Failed --> [*]: Cleanup
+
+    note right of Creating
+        Validate request
+        Generate weaver ID
+        Create database record
+        Submit to K8s
+    end note
+
+    note right of Pending
+        Pull container image
+        Inject secrets
+        Start container
+    end note
+
+    note right of Running
+        Accept client connections
+        Execute commands
+        Stream output
+        Monitor health
+    end note
+
+    note right of Succeeded
+        Mark as completed
+        Cleanup K8s pod
+        Update database
+    end note
+
+    note right of Failed
+        Capture logs
+        Mark as failed
+        Cleanup K8s pod
+        Update database
+    end note
+```
+
+---
+
+## 12. Component Dependency Overview
+
+```mermaid
+graph TB
+    subgraph "Application Layer"
+        CLI[loom-cli]
+        Server[loom-server]
+        Web[loom-web]
+    end
+
+    subgraph "Service Layer"
+        Auth[loom-server-auth]
+        LLM[loom-server-llm-service]
+        DB[loom-server-db]
+        Secrets[loom-server-secrets]
+        Flags[loom-server-flags]
+        Analytics[loom-server-analytics]
+        Weaver[loom-server-weaver]
+        SCM[loom-server-scm]
+    end
+
+    subgraph "Common Layer"
+        Core[loom-common-core]
+        Thread[loom-thread]
+        HTTP[loom-common-http]
+        Secret[loom-common-secret]
+        I18n[loom-i18n]
+    end
+
+    subgraph "Tool Layer"
+        Tools[loom-cli-tools]
+        Edit[edit_file tool]
+        Bash[bash tool]
+    end
+
+    CLI --> Core
+    CLI --> Thread
+    CLI --> HTTP
+    CLI --> Tools
+    CLI --> Auth
+
+    Server --> Core
+    Server --> Thread
+    Server --> HTTP
+    Server --> Auth
+    Server --> LLM
+    Server --> DB
+    Server --> Secrets
+    Server --> Flags
+    Server --> Analytics
+    Server --> Weaver
+
+    Web --> Core
+    Web --> HTTP
+    Web --> Auth
+
+    Auth --> Core
+    Auth --> DB
+    Auth --> HTTP
+
+    LLM --> Core
+    LLM --> HTTP
+    LLM --> Secret
+
+    DB --> Core
+    DB --> Thread
+
+    Secrets --> Core
+    Secrets --> DB
+    Secrets --> Secret
+
+    Flags --> Core
+    Flags --> DB
+
+    Analytics --> Core
+    Analytics --> DB
+    Analytics --> I18n
+
+    Weaver --> Core
+    Weaver --> DB
+    Weaver --> Secrets
+    Weaver --> SCM
+
+    SCM --> Core
+    SCM --> DB
+
+    Tools --> Core
+    Tools --> Edit
+    Tools --> Bash
+
+    Edit --> Core
+    Bash --> Core
+
+    classDef app fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef service fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef common fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef tool fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+
+    class CLI,Server,Web app
+    class Auth,LLM,DB,Secrets,Flags,Analytics,Weaver,SCM service
+    class Core,Thread,HTTP,Secret,I18n common
+    class Tools,Edit,Bash tool
+```
+
+---
+
+**Architecture Diagrams Status:** COMPLETE
+
+**Total Diagrams:** 12
+
+**Coverage:**
+- Overall system architecture
+- Agent state machine
+- Database schema
+- LLM provider architecture
+- Authentication & authorization flow
+- Multi-tenant architecture
+- Security architecture
+- Feature flag evaluation
+- Analytics processing
+- Tool execution
+- Weaver lifecycle
+- Component dependencies
+
+All diagrams use Mermaid syntax for easy rendering in Markdown viewers and documentation tools.
