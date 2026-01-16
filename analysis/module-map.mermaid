@@ -1,8 +1,7 @@
-# Loom Module Dependency Map
+%% Loom Module Dependency Map
+%% Documentation: See 02-dependencies.md for detailed dependency analysis
 
-## Layer Architecture
-
-```mermaid
+%% Diagram 1: Layer Architecture
 graph TB
     subgraph "Application Layer"
         CLI[loom-cli]
@@ -61,11 +60,8 @@ graph TB
 
     COMMON_THREAD --> COMMON_SECRET
     COMMON_HTTP --> COMMON_CONFIG
-```
 
-## LLM Provider Dependencies
-
-```mermaid
+%% Diagram 2: LLM Provider Dependencies
 graph LR
     SERVICE[loom-server-llm-service]
     PROXY[loom-server-llm-proxy]
@@ -82,11 +78,8 @@ graph LR
     ANTHROPIC --> COMMON_HTTP
     OPENAI --> COMMON_HTTP
     VERTEX --> COMMON_HTTP
-```
 
-## Authentication Provider Dependencies
-
-```mermaid
+%% Diagram 3: Authentication Provider Dependencies
 graph TB
     AUTH[loom-server-auth]
     DEVICE[loom-server-auth-devicecode]
@@ -105,11 +98,8 @@ graph TB
     GOOGLE --> COMMON_HTTP
     OKTA --> COMMON_HTTP
     DEVICE --> COMMON_HTTP
-```
 
-## Weaver (Remote Execution) Dependencies
-
-```mermaid
+%% Diagram 4: Weaver (Remote Execution) Dependencies
 graph TB
     PROVISIONER[loom-server-weaver]
     K8S[loom-server-k8s]
@@ -124,14 +114,11 @@ graph TB
     PROVISIONER --> SECRETS
     PROVISIONER --> WGTUNNEL
 
-    SECRETS --> WEAVCER_SECRETS
+    SECRETS --> WEAVER_SECRETS
 
     SIDECAR --> AUDIT_EBPF
-```
 
-## WireGuard Tunnel Dependencies
-
-```mermaid
+%% Diagram 5: WireGuard Tunnel Dependencies
 graph TB
     ENGINE[loom-wgtunnel-engine]
     CONN[loom-wgtunnel-conn]
@@ -144,11 +131,8 @@ graph TB
 
     CONN --> COMMON
     DERP --> COMMON
-```
 
-## TUI Widget Dependencies
-
-```mermaid
+%% Diagram 6: TUI Widget Dependencies
 graph TB
     APP[loom-tui-app]
     CORE[loom-tui-core]
@@ -189,11 +173,8 @@ graph TB
     STATUS --> CORE
     THREADS --> CORE
     TOOLS --> CORE
-```
 
-## Feature Flags & Analytics Dependencies
-
-```mermaid
+%% Diagram 7: Feature Flags & Analytics Dependencies
 graph TB
     FLAGS[loom-flags]
     FLAGS_CORE[loom-flags-core]
@@ -211,11 +192,8 @@ graph TB
 
     FLAGS_SERVER --> COMMON_HTTP
     ANALYTICS_SERVER --> COMMON_HTTP
-```
 
-## Complete Crate Dependency Graph (Simplified)
-
-```mermaid
+%% Diagram 8: Complete Crate Dependency Graph (Simplified)
 graph TB
     subgraph "Entry Points"
         LOOM_CLI[loom-cli]
@@ -372,3 +350,15 @@ graph TB
     LS_FLAGS --> FLAGS
     LS_ANALYTICS --> ANALYTICS
     LS_LOGS --> REDACT
+
+%% Module Dependency Map Status: COMPLETE
+%% Total Diagrams: 8
+%% Coverage:
+%% - Layer architecture (Application, Feature, Common, Cross-Cutting)
+%% - LLM provider dependencies
+%% - Authentication provider dependencies
+%% - Weaver remote execution dependencies
+%% - WireGuard tunnel dependencies
+%% - TUI widget dependencies
+%% - Feature flags & analytics dependencies
+%% - Complete crate dependency graph (simplified)
