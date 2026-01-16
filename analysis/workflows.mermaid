@@ -1,0 +1,386 @@
+# Loom Workflow Diagrams
+
+**Location:** `analysis/workflows.mermaid`
+
+---
+
+## Agent Conversation Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> WaitingForUserInput: Agent created
+
+    WaitingForUserInput --> CallingLlm: User sends message
+    CallingLlm --> CallingLlm: LLM streaming text
+    CallingLlm --> ProcessingLlmResponse: LLM completes
+
+    ProcessingLlmResponse --> ExecutingTools: LLM requests tools
+    ProcessingLlmResponse --> WaitingForUserInput: LLM responds normally
+
+    ExecutingTools --> ExecutingTools: Tools running
+    ExecutingTools --> PostToolsHook: All tools complete (mutating)
+    ExecutingTools --> CallingLlm: All tools complete (read-only)
+
+    PostToolsHook --> CallingLlm: Hook complete
+
+    CallingLlm --> Error: LLM error
+    Error --> CallingLlm: Retry timeout
+    Error --> WaitingForUserInput: Max retries
+
+    WaitingForUserInput --> [*]: Shutdown
+    CallingLlm --> [*]: Shutdown
+    ExecutingTools --> [*]: Shutdown
+    Error --> [*]: Shutdown
+```
+
+---
+
+## Tool Execution Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant ToolRegistry
+    participant Tool
+    participant Filesystem
+
+    Agent->>ToolRegistry: invoke(tool_name, args)
+    ToolRegistry->>Tool: invoke(args, context)
+
+    Tool->>Tool: Validate path in workspace
+    alt Path valid
+        Tool->>Filesystem: Read/Edit file
+        Filesystem-->>Tool: Result
+        Tool-->>ToolRegistry: Ok(output)
+    else Path invalid
+        Tool-->>ToolRegistry: Err(PathOutsideWorkspace)
+    end
+
+    ToolRegistry-->>Agent: Result
+
+    Agent->>Agent: Add tool result to conversation
+    Agent->>Agent: Check if all tools complete
+    Agent->>Agent: Determine next action
+```
+
+---
+
+## Authentication Flow (OAuth)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI
+    participant Server
+    participant OAuthProvider
+
+    User->>CLI: loom login
+    CLI->>Server: GET /auth/github/start
+    Server->>Server: Generate state token
+    Server->>Server: Store in session
+    Server-->>CLI: 302 Redirect to GitHub
+    CLI->>User: Open browser
+
+    User->>OAuthProvider: Visit auth URL
+    OAuthProvider->>User: Display approval page
+    User->>OAuthProvider: Authorize
+    OAuthProvider-->>Server: Callback with code
+    Server->>OAuthProvider: Exchange code for token
+    OAuthProvider-->>Server: Access token
+    Server->>Server: Fetch user profile
+    Server->>Server: Create/update user
+    Server->>Server: Create session
+    Server-->>User: Redirect to success page
+    Server-->>CLI: Session token
+    CLI->>CLI: Store credentials
+```
+
+---
+
+## Thread Persistence Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant ThreadStore
+    participant Database
+
+    Agent->>ThreadStore: upsert(thread)
+    ThreadStore->>Database: SELECT thread BY id
+
+    alt Thread not found
+        ThreadStore->>Database: INSERT thread (version=1)
+    else Thread exists
+        ThreadStore->>ThreadStore: Check version
+        alt Version mismatch
+            ThreadStore-->>Agent: Err(VersionConflict)
+        else Version matches
+            ThreadStore->>ThreadStore: Increment version
+            ThreadStore->>Database: UPDATE thread
+            ThreadStore->>Database: UPDATE git_commits
+            ThreadStore->>Database: UPDATE threads_fts
+        end
+    end
+
+    ThreadStore-->>Agent: Ok(thread)
+```
+
+---
+
+## Auto-Commit Flow
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant AutoCommitService
+    participant Git
+
+    Agent->>AutoCommitService: RunPostToolsHook(completed_tools)
+    AutoCommitService->>AutoCommitService: Check for mutating tools
+
+    alt Mutating tools succeeded
+        AutoCommitService->>Git: git status --porcelain
+        Git-->>AutoCommitService: Changed files
+
+        alt Changes detected
+            AutoCommitService->>AutoCommitService: Generate commit message
+            AutoCommitService->>Git: git add <files>
+            AutoCommitService->>Git: git commit -m "message"
+            Git-->>AutoCommitService: Commit SHA
+            AutoCommitService-->>Agent: Success(sha)
+        else No changes
+            AutoCommitService-->>Agent: Skipped
+        end
+    else No mutating tools
+        AutoCommitService-->>Agent: Skipped
+    end
+
+    Agent->>Agent: Continue conversation
+```
+
+---
+
+## LLM Request Flow
+
+```mermaid
+sequenceDiagram
+    participant CLI
+    participant ProxyLlmClient
+    participant Server
+    participant AnthropicAPI
+
+    CLI->>ProxyLlmClient: complete_streaming(request)
+    ProxyLlmClient->>Server: POST /llm/stream
+    Note over Server: Route to provider
+
+    Server->>AnthropicAPI: POST /v1/messages
+    Server->>Server: Stream SSE events
+
+    loop For each chunk
+        AnthropicAPI-->>Server: data chunk
+        Server-->>ProxyLlmClient: SSE event
+        ProxyLlmClient->>ProxyLlmClient: Parse delta
+        ProxyLlmClient-->>CLI: LlmEvent::TextDelta
+        CLI->>CLI: Display to user
+    end
+
+    AnthropicAPI-->>Server: message_stop
+    Server-->>ProxyLlmClient: LlmEvent::Completed
+    ProxyLlmClient-->>CLI: LlmResponse
+```
+
+---
+
+## Device Code Flow
+
+```mermaid
+sequenceDiagram
+    participant CLI
+    participant Server
+    participant User
+    participant OAuthProvider
+
+    CLI->>Server: POST /auth/device/start
+    Server->>Server: Generate codes
+    Server-->>CLI: device_code, user_code, verification_url
+
+    CLI->>User: "Enter code XYZ at https://example.com"
+
+    User->>OAuthProvider: Visit verification URL
+    User->>OAuthProvider: Enter user code
+    OAuthProvider->>User: Show authorization
+    User->>OAuthProvider: Approve
+    OAuthProvider-->>Server: Webhook: code approved
+
+    loop Device polling
+        CLI->>Server: POST /auth/device/poll (device_code)
+        alt Not approved yet
+            Server-->>CLI: status: pending
+        else Approved
+            Server-->>CLI: status: completed, access_token
+        end
+    end
+
+    CLI->>CLI: Store credentials
+```
+
+---
+
+## Feature Flag Evaluation Flow
+
+```mermaid
+sequenceDiagram
+    participant SDK
+    participant Server
+    participant Database
+
+    SDK->>Server: POST /flags/evaluate
+    Server->>Server: Parse request (person_id, flag_name)
+
+    Server->>Database: SELECT flag BY name
+    Database-->>Server: FeatureFlag (enabled, conditions)
+
+    Server->>Server: Evaluate conditions:
+    Note over Server: - Rollout percentage<br/>- Person whitelist<br/>- Attribute targeting
+
+    Server->>Database: SELECT person BY id
+    Database-->>Server: Person (attributes)
+
+    Server->>Server: Check matches:
+    Note over Server: - Is person in whitelist?<br/>- Within rollout %?<br/>- Attributes match?
+
+    Server-->>SDK: { enabled: bool, reason: string }
+    SDK->>SDK: Enable/disable feature
+```
+
+---
+
+## Weaver Provisioning Flow
+
+```mermaid
+sequenceDiagram
+    participant CLI
+    participant Server
+    participant Kubernetes
+    participant Registry
+
+    CLI->>Server: POST /weavers (image, env, resources)
+    Server->>Server: Validate request
+    Server->>Server: Generate weaver ID
+    Server->>Database: Insert weaver record
+
+    Server->>Kubernetes: Create Pod
+    Note over Kubernetes: - Pull container image<br/>- Inject secrets<br/>- Set resource limits
+
+    Kubernetes-->>Server: Pod created
+    Server-->>CLI: WeaverApiResponse (id, status: Pending)
+
+    Kubernetes->>Registry: Pull image
+    Kubernetes->>Kubernetes: Start container
+    Kubernetes-->>Server: Status: Running
+
+    Server->>CLI: WebSocket update (status: Running)
+
+    CLI->>CLI: Attach to weaver
+    Note over CLI: Execute commands remotely
+
+    Kubernetes->>Kubernetes: Container exits
+    Kubernetes-->>Server: Status: Succeeded
+    Server->>Database: Update weaver status
+```
+
+---
+
+## Analytics Event Flow
+
+```mermaid
+sequenceDiagram
+    participant SDK
+    participant Server
+    participant Queue
+    participant Worker
+    participant Database
+
+    SDK->>Server: POST /analytics/events
+    Server->>Server: Validate events
+    Server->>Server: Resolve person ID:
+    Note over Server: - Check existing person<br/>- Create new if needed
+
+    Server->>Queue: Enqueue events
+    Server-->>SDK: 202 Accepted
+
+    Queue->>Worker: Dequeue batch
+    Worker->>Database: Insert events (bulk)
+    Worker->>Database: Update person properties
+    Worker->>Database: Trigger aggregations
+
+    Note over Database: - Funnel calculations<br/>- Retention analysis<br/>- Cohort reports
+```
+
+---
+
+## Search Flow
+
+```mermaid
+sequenceDiagram
+    participant CLI
+    participant Server
+    participant FTS5
+    participant Database
+
+    CLI->>Server: GET /threads/search?q=query
+    Server->>FTS5: SELECT FROM threads_fts WHERE threads_fts MATCH query
+    Note over FTS5: BM25 ranking algorithm
+
+    FTS5-->>Server: Thread IDs with scores
+    Server->>Database: SELECT threads WHERE id IN (...)
+    Database-->>Server: Thread data
+
+    Server->>Server: Filter by visibility
+    Server->>Server: Apply pagination
+    Server-->>CLI: SearchResponse (hits with scores)
+```
+
+---
+
+## Secret Injection Flow
+
+```mermaid
+sequenceDiagram
+    participant Server
+    participant SecretStore
+    participant Kubernetes
+    participant Weaver
+
+    Server->>SecretStore: GET secrets (repo_id, org_id)
+    SecretStore->>SecretStore: Decrypt secrets
+    SecretStore-->>Server: Secret map
+
+    Server->>Kubernetes: Create Pod with secrets
+    Note over Kubernetes: Inject as env vars<br/>or volume mounts
+
+    Kubernetes->>Weaver: Start container
+    Note over Weaver: Secrets available as<br/>environment variables
+
+    Weaver->>Weaver: Access secrets via env
+    Note over Weaver: - LOOM_SECRET_KEY=***<br/>- GIT_TOKEN=***
+```
+
+---
+
+**Workflow Diagrams Status:** COMPLETE
+
+**Total Diagrams:** 12
+
+**Coverage:**
+- Agent state machine flow
+- Tool execution flow
+- Authentication flows (OAuth, Device Code)
+- Thread persistence flow
+- Auto-commit flow
+- LLM request flow
+- Feature flag evaluation
+- Weaver provisioning
+- Analytics events
+- Search
+- Secret injection
