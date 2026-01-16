@@ -1,12 +1,8 @@
-# Loom Workflow Diagrams
+%% Loom Workflow Diagrams
+%% Location: analysis/workflows.mermaid
+%% Documentation: See 04-business-logic.md for detailed algorithm documentation
 
-**Location:** `analysis/workflows.mermaid`
-
----
-
-## Agent Conversation Flow
-
-```mermaid
+%% Diagram 1: Agent Conversation Flow
 stateDiagram-v2
     [*] --> WaitingForUserInput: Agent created
 
@@ -31,13 +27,8 @@ stateDiagram-v2
     CallingLlm --> [*]: Shutdown
     ExecutingTools --> [*]: Shutdown
     Error --> [*]: Shutdown
-```
 
----
-
-## Tool Execution Flow
-
-```mermaid
+%% Diagram 2: Tool Execution Flow
 sequenceDiagram
     participant Agent
     participant ToolRegistry
@@ -61,13 +52,8 @@ sequenceDiagram
     Agent->>Agent: Add tool result to conversation
     Agent->>Agent: Check if all tools complete
     Agent->>Agent: Determine next action
-```
 
----
-
-## Authentication Flow (OAuth)
-
-```mermaid
+%% Diagram 3: Authentication Flow (OAuth)
 sequenceDiagram
     participant User
     participant CLI
@@ -93,13 +79,8 @@ sequenceDiagram
     Server-->>User: Redirect to success page
     Server-->>CLI: Session token
     CLI->>CLI: Store credentials
-```
 
----
-
-## Thread Persistence Flow
-
-```mermaid
+%% Diagram 4: Thread Persistence Flow
 sequenceDiagram
     participant Agent
     participant ThreadStore
@@ -123,13 +104,8 @@ sequenceDiagram
     end
 
     ThreadStore-->>Agent: Ok(thread)
-```
 
----
-
-## Auto-Commit Flow
-
-```mermaid
+%% Diagram 5: Auto-Commit Flow
 sequenceDiagram
     participant Agent
     participant AutoCommitService
@@ -156,13 +132,8 @@ sequenceDiagram
     end
 
     Agent->>Agent: Continue conversation
-```
 
----
-
-## LLM Request Flow
-
-```mermaid
+%% Diagram 6: LLM Request Flow
 sequenceDiagram
     participant CLI
     participant ProxyLlmClient
@@ -187,13 +158,8 @@ sequenceDiagram
     AnthropicAPI-->>Server: message_stop
     Server-->>ProxyLlmClient: LlmEvent::Completed
     ProxyLlmClient-->>CLI: LlmResponse
-```
 
----
-
-## Device Code Flow
-
-```mermaid
+%% Diagram 7: Device Code Flow
 sequenceDiagram
     participant CLI
     participant Server
@@ -222,13 +188,8 @@ sequenceDiagram
     end
 
     CLI->>CLI: Store credentials
-```
 
----
-
-## Feature Flag Evaluation Flow
-
-```mermaid
+%% Diagram 8: Feature Flag Evaluation Flow
 sequenceDiagram
     participant SDK
     participant Server
@@ -251,13 +212,8 @@ sequenceDiagram
 
     Server-->>SDK: { enabled: bool, reason: string }
     SDK->>SDK: Enable/disable feature
-```
 
----
-
-## Weaver Provisioning Flow
-
-```mermaid
+%% Diagram 9: Weaver Provisioning Flow
 sequenceDiagram
     participant CLI
     participant Server
@@ -287,13 +243,8 @@ sequenceDiagram
     Kubernetes->>Kubernetes: Container exits
     Kubernetes-->>Server: Status: Succeeded
     Server->>Database: Update weaver status
-```
 
----
-
-## Analytics Event Flow
-
-```mermaid
+%% Diagram 10: Analytics Event Flow
 sequenceDiagram
     participant SDK
     participant Server
@@ -315,13 +266,8 @@ sequenceDiagram
     Worker->>Database: Trigger aggregations
 
     Note over Database: - Funnel calculations<br/>- Retention analysis<br/>- Cohort reports
-```
 
----
-
-## Search Flow
-
-```mermaid
+%% Diagram 11: Search Flow
 sequenceDiagram
     participant CLI
     participant Server
@@ -339,13 +285,8 @@ sequenceDiagram
     Server->>Server: Filter by visibility
     Server->>Server: Apply pagination
     Server-->>CLI: SearchResponse (hits with scores)
-```
 
----
-
-## Secret Injection Flow
-
-```mermaid
+%% Diagram 12: Secret Injection Flow
 sequenceDiagram
     participant Server
     participant SecretStore
@@ -364,23 +305,18 @@ sequenceDiagram
 
     Weaver->>Weaver: Access secrets via env
     Note over Weaver: - LOOM_SECRET_KEY=***<br/>- GIT_TOKEN=***
-```
 
----
-
-**Workflow Diagrams Status:** COMPLETE
-
-**Total Diagrams:** 12
-
-**Coverage:**
-- Agent state machine flow
-- Tool execution flow
-- Authentication flows (OAuth, Device Code)
-- Thread persistence flow
-- Auto-commit flow
-- LLM request flow
-- Feature flag evaluation
-- Weaver provisioning
-- Analytics events
-- Search
-- Secret injection
+%% Workflow Diagrams Status: COMPLETE
+%% Total Diagrams: 12
+%% Coverage:
+%% - Agent state machine flow
+%% - Tool execution flow
+%% - Authentication flows (OAuth, Device Code)
+%% - Thread persistence flow
+%% - Auto-commit flow
+%% - LLM request flow
+%% - Feature flag evaluation
+%% - Weaver provisioning
+%% - Analytics events
+%% - Search
+%% - Secret injection
