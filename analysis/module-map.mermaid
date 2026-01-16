@@ -1,0 +1,374 @@
+# Loom Module Dependency Map
+
+## Layer Architecture
+
+```mermaid
+graph TB
+    subgraph "Application Layer"
+        CLI[loom-cli]
+        SERVER[loom-server]
+        WEB[loom-web]
+        VSCODE[vscode-ext]
+    end
+
+    subgraph "Feature Layer"
+        CLI_TOOLS[loom-cli-tools]
+        CLI_CONFIG[loom-cli-config]
+        CLI_AUTH[loom-cli-credentials]
+        SERVER_API[loom-server-api]
+        SERVER_AUTH[loom-server-auth]
+        SERVER_LLM[loom-server-llm-*]
+        SERVER_WEAVER[loom-server-weaver]
+        TUI_APP[loom-tui-app]
+    end
+
+    subgraph "Common Layer"
+        COMMON_CORE[loom-common-core]
+        COMMON_THREAD[loom-common-thread]
+        COMMON_HTTP[loom-common-http]
+        COMMON_CONFIG[loom-common-config]
+        COMMON_SECRET[loom-common-secret]
+        COMMON_I18N[loom-common-i18n]
+    end
+
+    subgraph "Cross-Cutting"
+        FLAGS[loom-flags-*]
+        ANALYTICS[loom-analytics-*]
+        REDACT[loom-redact]
+    end
+
+    CLI --> CLI_TOOLS
+    CLI --> CLI_CONFIG
+    CLI --> COMMON_CORE
+    CLI --> COMMON_THREAD
+
+    SERVER --> SERVER_API
+    SERVER --> SERVER_AUTH
+    SERVER --> COMMON_CORE
+    SERVER --> COMMON_THREAD
+
+    SERVER_API --> SERVER_LLM
+    SERVER_API --> SERVER_WEAVER
+
+    CLI_TOOLS --> COMMON_CORE
+    CLI_CONFIG --> COMMON_CONFIG
+
+    SERVER_AUTH --> COMMON_CORE
+    SERVER_LLM --> COMMON_HTTP
+    SERVER_WEAVER --> COMMON_HTTP
+
+    TUI_APP --> COMMON_CORE
+
+    COMMON_THREAD --> COMMON_SECRET
+    COMMON_HTTP --> COMMON_CONFIG
+```
+
+## LLM Provider Dependencies
+
+```mermaid
+graph LR
+    SERVICE[loom-server-llm-service]
+    PROXY[loom-server-llm-proxy]
+    ANTHROPIC[loom-server-llm-anthropic]
+    OPENAI[loom-server-llm-openai]
+    VERTEX[loom-server-llm-vertex]
+
+    SERVICE --> ANTHROPIC
+    SERVICE --> OPENAI
+    SERVICE --> VERTEX
+    SERVICE --> PROXY
+
+    PROXY --> COMMON_HTTP
+    ANTHROPIC --> COMMON_HTTP
+    OPENAI --> COMMON_HTTP
+    VERTEX --> COMMON_HTTP
+```
+
+## Authentication Provider Dependencies
+
+```mermaid
+graph TB
+    AUTH[loom-server-auth]
+    DEVICE[loom-server-auth-devicecode]
+    GITHUB[loom-server-auth-github]
+    GOOGLE[loom-server-auth-google]
+    MAGIC[loom-server-auth-magiclink]
+    OKTA[loom-server-auth-okta]
+
+    AUTH --> DEVICE
+    AUTH --> GITHUB
+    AUTH --> GOOGLE
+    AUTH --> MAGIC
+    AUTH --> OKTA
+
+    GITHUB --> COMMON_HTTP
+    GOOGLE --> COMMON_HTTP
+    OKTA --> COMMON_HTTP
+    DEVICE --> COMMON_HTTP
+```
+
+## Weaver (Remote Execution) Dependencies
+
+```mermaid
+graph TB
+    PROVISIONER[loom-server-weaver]
+    K8S[loom-server-k8s]
+    SECRETS[loom-server-secrets]
+    WGTUNNEL[loom-server-wgtunnel]
+
+    WEAVER_SECRETS[loom-weaver-secrets]
+    SIDECAR[loom-weaver-audit-sidecar]
+    AUDIT_EBPF[loom-weaver-ebpf]
+
+    PROVISIONER --> K8S
+    PROVISIONER --> SECRETS
+    PROVISIONER --> WGTUNNEL
+
+    SECRETS --> WEAVCER_SECRETS
+
+    SIDECAR --> AUDIT_EBPF
+```
+
+## WireGuard Tunnel Dependencies
+
+```mermaid
+graph TB
+    ENGINE[loom-wgtunnel-engine]
+    CONN[loom-wgtunnel-conn]
+    DERP[loom-wgtunnel-derp]
+    COMMON[loom-wgtunnel-common]
+
+    ENGINE --> CONN
+    ENGINE --> DERP
+    ENGINE --> COMMON
+
+    CONN --> COMMON
+    DERP --> COMMON
+```
+
+## TUI Widget Dependencies
+
+```mermaid
+graph TB
+    APP[loom-tui-app]
+    CORE[loom-tui-core]
+    THEME[loom-tui-theme]
+
+    HEADER[loom-tui-widget-header]
+    INPUT[loom-tui-widget-input-box]
+    MARKDOWN[loom-tui-widget-markdown]
+    MESSAGES[loom-tui-widget-message-list]
+    MODAL[loom-tui-widget-modal]
+    SCROLL[loom-tui-widget-scrollable]
+    SPINNER[loom-tui-widget-spinner]
+    STATUS[loom-tui-widget-status-bar]
+    THREADS[loom-tui-widget-thread-list]
+    TOOLS[loom-tui-widget-tool-panel]
+
+    APP --> CORE
+    APP --> THEME
+
+    APP --> HEADER
+    APP --> INPUT
+    APP --> MARKDOWN
+    APP --> MESSAGES
+    APP --> MODAL
+    APP --> SCROLL
+    APP --> SPINNER
+    APP --> STATUS
+    APP --> THREADS
+    APP --> TOOLS
+
+    HEADER --> CORE
+    INPUT --> CORE
+    MARKDOWN --> CORE
+    MESSAGES --> CORE
+    MODAL --> CORE
+    SCROLL --> CORE
+    SPINNER --> CORE
+    STATUS --> CORE
+    THREADS --> CORE
+    TOOLS --> CORE
+```
+
+## Feature Flags & Analytics Dependencies
+
+```mermaid
+graph TB
+    FLAGS[loom-flags]
+    FLAGS_CORE[loom-flags-core]
+    FLAGS_SERVER[loom-server-flags]
+
+    ANALYTICS[loom-analytics]
+    ANALYTICS_CORE[loom-analytics-core]
+    ANALYTICS_SERVER[loom-server-analytics]
+
+    FLAGS --> FLAGS_CORE
+    FLAGS --> FLAGS_SERVER
+
+    ANALYTICS --> ANALYTICS_CORE
+    ANALYTICS --> ANALYTICS_SERVER
+
+    FLAGS_SERVER --> COMMON_HTTP
+    ANALYTICS_SERVER --> COMMON_HTTP
+```
+
+## Complete Crate Dependency Graph (Simplified)
+
+```mermaid
+graph TB
+    subgraph "Entry Points"
+        LOOM_CLI[loom-cli]
+        LOOM_SERVER[loom-server]
+    end
+
+    subgraph "Common Libraries"
+        LC_CORE[loom-common-core]
+        LC_THREAD[loom-common-thread]
+        LC_HTTP[loom-common-http]
+        LC_CONFIG[loom-common-config]
+        LC_SECRET[loom-common-secret]
+        LC_I18N[loom-common-i18n]
+        LC_SPOOL[loom-common-spool]
+        LC_WEBHOOK[loom-common-webhook]
+        LC_VERSION[loom-common-version]
+    end
+
+    subgraph "CLI Features"
+        LCLI_TOOLS[loom-cli-tools]
+        LCLI_CONFIG[loom-cli-config]
+        LCREDS[loom-cli-credentials]
+        LCLI_GIT[loom-cli-git]
+        LCLI_AC[loom-cli-auto-commit]
+        LCLI_ACP[loom-cli-acp]
+        LCLI_SPOOL[loom-cli-spool]
+    end
+
+    subgraph "Server Core"
+        LS_API[loom-server-api]
+        LS_AUTH[loom-server-auth]
+        LS_DB[loom-server-db]
+        LS_CONFIG[loom-server-config]
+        LS_LOGS[loom-server-logs]
+        LS_JOBS[loom-server-jobs]
+        LS_AUDIT[loom-server-audit]
+        LS_EMAIL[loom-server-email]
+    end
+
+    subgraph "LLM Providers"
+        LLM_PROXY[loom-server-llm-proxy]
+        LLM_ANTHROPIC[loom-server-llm-anthropic]
+        LLM_OPENAI[loom-server-llm-openai]
+        LLM_VERTEX[loom-server-llm-vertex]
+        LLM_SERVICE[loom-server-llm-service]
+    end
+
+    subgraph "Auth Providers"
+        AUTH_DEVICE[loom-server-auth-devicecode]
+        AUTH_GITHUB[loom-server-auth-github]
+        AUTH_GOOGLE[loom-server-auth-google]
+        AUTH_MAGIC[loom-server-auth-magiclink]
+        AUTH_OKTA[loom-server-auth-okta]
+    end
+
+    subgraph "Server Features"
+        LS_SCM[loom-server-scm]
+        LS_SCM_MIRROR[loom-server-scm-mirror]
+        LS_GITHUB[loom-server-github-app]
+        LS_WEAVCER[loom-server-weaver]
+        LS_K8S[loom-server-k8s]
+        LS_SECRETS[loom-server-secrets]
+        LS_SCM_SEARCH[loom-server-search-*]
+        LS_FLAGS[loom-server-flags]
+        LS_ANALYTICS[loom-server-analytics]
+    end
+
+    subgraph "TUI"
+        TUI_APP[loom-tui-app]
+        TUI_CORE[loom-tui-core]
+        TUI_THEME[loom-tui-theme]
+    end
+
+    subgraph "Cross-Cutting"
+        FLAGS[loom-flags-core]
+        ANALYTICS[loom-analytics-core]
+        REDACT[loom-redact]
+        SCIM[loom-scim]
+    end
+
+    %% Entry point connections
+    LOOM_CLI --> LCLI_TOOLS
+    LOOM_CLI --> LCLI_CONFIG
+    LOOM_CLI --> LC_CORE
+    LOOM_CLI --> LC_THREAD
+    LOOM_CLI --> LLM_PROXY
+
+    LOOM_SERVER --> LS_API
+    LOOM_SERVER --> LS_AUTH
+    LOOM_SERVER --> LS_DB
+    LOOM_SERVER --> LC_CORE
+
+    %% CLI feature connections
+    LCLI_TOOLS --> LC_CORE
+    LCLI_CONFIG --> LC_CONFIG
+    LCREDS --> LC_SECRET
+    LCLI_GIT --> LC_CORE
+    LCLI_AC --> LCLI_GIT
+
+    %% Server core connections
+    LS_API --> LS_AUTH
+    LS_API --> LS_DB
+    LS_AUTH --> LC_CORE
+    LS_DB --> LC_CONFIG
+    LS_CONFIG --> LC_CONFIG
+
+    %% LLM provider connections
+    LLM_SERVICE --> LLM_PROXY
+    LLM_SERVICE --> LLM_ANTHROPIC
+    LLM_SERVICE --> LLM_OPENAI
+    LLM_SERVICE --> LLM_VERTEX
+    LLM_PROXY --> LC_HTTP
+    LLM_ANTHROPIC --> LC_HTTP
+    LLM_OPENAI --> LC_HTTP
+    LLM_VERTEX --> LC_HTTP
+
+    %% Auth provider connections
+    LS_AUTH --> AUTH_DEVICE
+    LS_AUTH --> AUTH_GITHUB
+    LS_AUTH --> AUTH_GOOGLE
+    LS_AUTH --> AUTH_MAGIC
+    LS_AUTH --> AUTH_OKTA
+
+    AUTH_GITHUB --> LC_HTTP
+    AUTH_GOOGLE --> LC_HTTP
+    AUTH_OKTA --> LC_HTTP
+    AUTH_DEVICE --> LC_HTTP
+
+    %% Server feature connections
+    LS_API --> LS_WEAVCER
+    LS_API --> LS_SCM
+    LS_API --> LS_FLAGS
+    LS_API --> LS_ANALYTICS
+
+    LS_WEAVCER --> LS_K8S
+    LS_WEAVCER --> LS_SECRETS
+    LS_K8S --> LC_CORE
+    LS_SECRETS --> LC_SECRET
+
+    LS_SCM_MIRROR --> LS_SCM
+    LS_SCM --> LC_CORE
+    LS_GITHUB --> LC_HTTP
+
+    %% Common library connections
+    LC_THREAD --> LC_SECRET
+    LC_HTTP --> LC_CONFIG
+
+    %% TUI connections
+    TUI_APP --> TUI_CORE
+    TUI_APP --> TUI_THEME
+    TUI_CORE --> LC_CORE
+
+    %% Cross-cutting connections
+    LS_FLAGS --> FLAGS
+    LS_ANALYTICS --> ANALYTICS
+    LS_LOGS --> REDACT
