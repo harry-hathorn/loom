@@ -1,14 +1,9 @@
-# Loom System Architecture Diagrams
+%% Loom System Architecture Diagrams
+%% Location: analysis/architecture-diagram.mermaid
+%% Phase: 6 - Architecture & Patterns
+%% Status: COMPLETE
 
-**Location:** `analysis/architecture-diagram.mermaid`
-**Phase:** 6 - Architecture & Patterns
-**Status:** COMPLETE
-
----
-
-## 1. Overall System Architecture
-
-```mermaid
+%% Diagram 1
 graph TB
     subgraph "Presentation Layer"
         CLI[loom-cli]
@@ -131,13 +126,8 @@ graph TB
     class SQLite,FTS5,Migrations database
     class Anthropic,OpenAI,Vertex,GitHub,Kubernetes,Email external
     class CoreTypes,ThreadPersist,HTTPClient,SecretHandling,I18n common
-```
 
----
-
-## 2. Agent State Machine Architecture
-
-```mermaid
+%% Diagram 2
 stateDiagram-v2
     [*] --> WaitingForUserInput: Agent Created
 
@@ -190,13 +180,8 @@ stateDiagram-v2
         Retry timeout
         User notification
     end note
-```
 
----
-
-## 3. Database Schema Architecture
-
-```mermaid
+%% Diagram 3
 erDiagram
     THREAD ||--o{ MESSAGE : has
     THREAD ||--o{ GIT_COMMIT : tracks
@@ -319,13 +304,8 @@ erDiagram
         json properties
         timestamp occurred_at
     }
-```
 
----
-
-## 4. LLM Provider Architecture
-
-```mermaid
+%% Diagram 4
 graph LR
     subgraph "Loom Core"
         Agent[Agent]
@@ -381,13 +361,8 @@ graph LR
     class Agent,LLMRouter loom
     class ProxyClient,AnthropicClient,OpenAIClient,VertexClient,LLMProxy service
     class AnthropicAPI,OpenAIAPI,VertexAPI external
-```
 
----
-
-## 5. Authentication & Authorization Flow
-
-```mermaid
+%% Diagram 5
 sequenceDiagram
     participant Client
     participant AuthMiddleware
@@ -421,13 +396,8 @@ sequenceDiagram
     else Invalid/missing session
         AuthMiddleware-->>Client: 401 Unauthorized
     end
-```
 
----
-
-## 6. Multi-Tenant Architecture
-
-```mermaid
+%% Diagram 6
 graph TB
     subgraph "Infrastructure Layer"
         LB[Load Balancer]
@@ -504,13 +474,8 @@ graph TB
     class OrgADB,OrgANamespace,OrgAWeavers,OrgASecrets orga
     class OrgBDB,BNamespace,OrgBWeavers,OrgBSecrets orgb
     class OrgCDB,CNamespace,OrgCWeavers,OrgCSecrets orgc
-```
 
----
-
-## 7. Security Architecture
-
-```mermaid
+%% Diagram 7
 graph TB
     subgraph "Request Flow"
         Request[Incoming Request]
@@ -562,13 +527,8 @@ graph TB
     class TLS,RateLimit,Auth,ABAC,Audit,SecretRedact security
     class Encryption,KeyRotation,SecretStore data
     class NetworkPolicies,PodSecurity,RBAC infra
-```
 
----
-
-## 8. Feature Flag Evaluation Architecture
-
-```mermaid
+%% Diagram 8
 graph TB
     subgraph "Client SDK"
         SDK[Feature Flag SDK]
@@ -627,13 +587,8 @@ graph TB
     class SDK,Cache client
     class API,FlagStore,PersonStore,SSE server
     class Evaluator,CheckEnabled,CheckWhitelist,CheckRollout,CheckRules,CheckAttributes logic
-```
 
----
-
-## 9. Analytics Processing Architecture
-
-```mermaid
+%% Diagram 9
 graph TB
     subgraph "Ingestion"
         SDK[Analytics SDK]
@@ -687,13 +642,8 @@ graph TB
     class Validator,PersonResolver,Queue,Worker processing
     class EventStore,PersonStore,PropertyStore,Aggregations storage
     class Funnels,Retention,Cohorts analysis
-```
 
----
-
-## 10. Tool Execution Architecture
-
-```mermaid
+%% Diagram 10
 graph TB
     subgraph "Agent"
         StateMachine[State Machine]
@@ -762,13 +712,8 @@ graph TB
     class EditFile,ReadFile,ListFiles,Bash,Search,Git tools
     class PathValidator,WorkspaceRoot,TimeoutManager security
     class FileSystem,Shell,GitRepo execution
-```
 
----
-
-## 11. Weaver Lifecycle Architecture
-
-```mermaid
+%% Diagram 11
 stateDiagram-v2
     [*] --> Creating: POST /weavers
 
@@ -819,13 +764,8 @@ stateDiagram-v2
         Cleanup K8s pod
         Update database
     end note
-```
 
----
-
-## 12. Component Dependency Overview
-
-```mermaid
+%% Diagram 12
 graph TB
     subgraph "Application Layer"
         CLI[loom-cli]
@@ -925,26 +865,20 @@ graph TB
     class Auth,LLM,DB,Secrets,Flags,Analytics,Weaver,SCM service
     class Core,Thread,HTTP,Secret,I18n common
     class Tools,Edit,Bash tool
-```
 
----
 
-**Architecture Diagrams Status:** COMPLETE
-
-**Total Diagrams:** 12
-
-**Coverage:**
-- Overall system architecture
-- Agent state machine
-- Database schema
-- LLM provider architecture
-- Authentication & authorization flow
-- Multi-tenant architecture
-- Security architecture
-- Feature flag evaluation
-- Analytics processing
-- Tool execution
-- Weaver lifecycle
-- Component dependencies
-
-All diagrams use Mermaid syntax for easy rendering in Markdown viewers and documentation tools.
+%% Architecture Diagrams Status: COMPLETE
+%% Total Diagrams: 12
+%% Coverage:
+%% - Overall system architecture
+%% - Agent state machine
+%% - Database schema
+%% - LLM provider architecture
+%% - Authentication & authorization flow
+%% - Multi-tenant architecture
+%% - Security architecture
+%% - Feature flag evaluation
+%% - Analytics processing
+%% - Tool execution
+%% - Weaver lifecycle
+%% - Component dependencies
