@@ -1398,16 +1398,365 @@ All endpoints return errors in consistent format:
 
 ---
 
-**Phase 5 Status:** 60% Complete
+---
+
+## SDK Client Methods
+
+### Analytics SDK (TypeScript/JavaScript)
+
+**Installation:**
+```bash
+pnpm add @loom/analytics
+```
+
+**Initialization:**
+```typescript
+import { Analytics } from '@loom/analytics';
+
+const analytics = new Analytics('write_key_abc123', {
+  apiEndpoint: 'https://loom.ghuntley.com',
+  flushAt: 20,  // Batch size
+  flushInterval: 10000  // 10 seconds
+});
+```
+
+**Capture Event:**
+```typescript
+analytics.capture('button_clicked', {
+  button_name: 'checkout',
+  page: '/pricing',
+  value: 99.99
+});
+```
+
+**Identify User:**
+```typescript
+analytics.identify('user@example.com', {
+  plan: 'pro',
+  signup_date: '2025-01-16'
+});
+```
+
+**Set Properties:**
+```typescript
+analytics.people.set({
+  email: 'user@example.com',
+  name: 'Jane Doe'
+});
+```
+
+**Set Once (Idempotent):**
+```typescript
+analytics.people.setOnce({
+  first_seen_date: '2025-01-16'
+});
+```
+
+**Unset Properties:**
+```typescript
+analytics.people.unset(['temporary_field']);
+```
+
+**Flush:**
+```typescript
+await analytics.flush();  // Force send queued events
+}
+```
+
+---
+
+### Feature Flags SDK (TypeScript/JavaScript)
+
+**Installation:**
+```bash
+pnpm add @loom/flags
+```
+
+**Client-Side SDK:**
+```typescript
+import { Flags } from '@loom/flags';
+
+const flags = new Flags('client_sdk_key_abc123', {
+  apiEndpoint: 'https://loom.ghuntley.com',
+  environment: 'production'
+});
+
+// Evaluate flag
+const result = flags.evaluate('new_ui_enabled', {
+  user_id: 'user_abc123',
+  attributes: {
+    plan: 'pro'
+  }
+});
+
+if (result.enabled) {
+  // Show new UI
+  console.log('Variant:', result.variant);
+}
+```
+
+**Server-Side SDK:**
+```typescript
+import { Flags } from '@loom/flags';
+
+const flags = new Flags('server_sdk_key_abc123', {
+  apiEndpoint: 'https://loom.ghuntley.com',
+  environment: 'production'
+});
+
+// Evaluate flag with full context
+const result = flags.evaluate('feature_rollout', {
+  user_id: 'user_abc123',
+  org_id: 'org_xyz789',
+  session_id: 'session_def456',
+  attributes: {
+    plan: 'pro',
+    signup_date: '2025-01-01'
+  },
+  geo: {
+    country: 'US',
+    region: 'CA',
+    city: 'San Francisco'
+  }
+});
+```
+
+**SSE Streaming (Real-time Updates):**
+```typescript
+const flags = new Flags('client_sdk_key_abc123', {
+  apiEndpoint: 'https://loom.ghuntley.com',
+  environment: 'production'
+});
+
+// Subscribe to flag changes
+flags.subscribe('new_ui_enabled', (result) => {
+  console.log('Flag changed:', result);
+});
+
+// Start SSE connection
+flags.connect();
+```
+
+---
+
+### HTTP Client (TypeScript/JavaScript)
+
+**Installation:**
+```bash
+pnpm add @loom/http
+```
+
+**Usage:**
+```typescript
+import { createClient } from '@loom/http';
+
+const client = createClient({
+  baseURL: 'https://loom.ghuntley.com',
+  token: 'session_token_abc123'
+});
+
+// List threads
+const threads = await client.threads.list({
+  workspace: '/home/user/project',
+  limit: 20
+});
+
+// Get thread
+const thread = await client.threads.get('T-0123456789abcdef0');
+
+// Search threads
+const results = await client.threads.search({
+  q: 'authentication bug',
+  limit: 10
+});
+```
+
+---
+
+## Webhook Payloads
+
+### Weaver Lifecycle Webhooks
+
+**Weaver Created:**
+```json
+{
+  "event": "weaver.created",
+  "timestamp": "2025-01-16T10:00:00Z",
+  "data": {
+    "weaver_id": "weaver_abc123",
+    "org_id": "org_xyz789",
+    "image": "ghcr.io/ghuntley/loom-weaver:latest",
+    "status": "pending",
+    "created_by": "user_abc123"
+  }
+}
+```
+
+**Weaver Status Changed:**
+```json
+{
+  "event": "weaver.status_changed",
+  "timestamp": "2025-01-16T10:05:00Z",
+  "data": {
+    "weaver_id": "weaver_abc123",
+    "old_status": "pending",
+    "new_status": "running",
+    "pod_ip": "10.244.1.5"
+  }
+}
+```
+
+**Weaver Deleted:**
+```json
+{
+  "event": "weaver.deleted",
+  "timestamp": "2025-01-16T12:00:00Z",
+  "data": {
+    "weaver_id": "weaver_abc123",
+    "final_status": "succeeded",
+    "exit_code": 0,
+    "age_hours": 4.0
+  }
+}
+```
+
+---
+
+### Thread Webhooks (Future)
+
+**Thread Created:**
+```json
+{
+  "event": "thread.created",
+  "timestamp": "2025-01-16T10:00:00Z",
+  "data": {
+    "thread_id": "T-0123456789abcdef0",
+    "title": "Bugfix session",
+    "owner_id": "user_abc123"
+  }
+}
+```
+
+---
+
+## Usage Examples
+
+### Complete Authentication Flow (CLI)
+
+```bash
+# 1. Login (opens browser)
+loom login
+
+# 2. List available threads
+loom list
+
+# 3. Resume previous session
+loom resume
+
+# 4. Chat with agent
+> Help me fix the authentication bug
+
+# 5. Agent uses tools automatically
+[I] Reading file src/auth/login.ts
+[I] Searching for "authentication error" in codebase
+[AI] I found the issue. The OAuth callback handler is missing error handling.
+
+# 6. Auto-commit triggered
+[Git] Automatic commit: Update src/auth/login.ts
+```
+
+---
+
+### Complete Weaver Session
+
+```bash
+# 1. Create weaver with environment
+loom new --image node:20 \
+        --org org_abc123 \
+        --repo https://github.com/user/project \
+        -e GIT_TOKEN=ghp_... \
+        -e NODE_ENV=production \
+        --ttl 8
+
+# 2. Attach to weaver
+loom attach weaver_abc123
+
+# 3. Interactive shell
+$ npm install
+$ npm test
+$ npm run build
+
+# 4. Detach (Ctrl+D)
+# Weaver continues running in background
+
+# 5. Check status
+loom weaver ps
+
+# 6. Delete weaver when done
+loom weaver delete weaver_abc123
+```
+
+---
+
+### Feature Flag Rollout Strategy
+
+```typescript
+// 1. Create environment
+const env = await flags.createEnvironment({
+  name: 'production',
+  color: '#10b981'
+});
+
+// 2. Create SDK key
+const sdkKey = await flags.createSdkKey({
+  environment_id: env.id,
+  key_type: 'client_side',
+  name: 'Web SDK'
+});
+// Save: client-sdk_abc123...
+
+// 3. Configure flag (via API or dashboard)
+// - Enable for 10% of users
+// - Whitelist internal team
+// - Roll out to US users first
+
+// 4. Use in application
+const result = flags.evaluate('new_dashboard', {
+  user_id: currentUser.id,
+  geo: { country: 'US' }
+});
+
+if (result.enabled) {
+  renderNewDashboard();
+} else {
+  renderOldDashboard();
+}
+```
+
+---
+
+**✓ PHASE 5 COMPLETE**
+
+---
+
+**Phase 5 Status:** 100% Complete
+**Files Created:**
+- `analysis/05-interfaces.md` - This document (1400+ lines)
+
 **Documented:**
-- ✓ REST API endpoints (Threads, Auth, LLM Proxy, Weavers, Feature Flags, Analytics, Users, Secrets, Health)
-- ✓ CLI commands (Basic, Weaver, ACP, Spool, WireGuard)
-- ✓ WebSocket interfaces (Agent, Weaver attach)
-- ✓ Configuration options (Server, CLI)
+- ✓ REST API endpoints (15+ endpoint groups, 50+ endpoints)
+- ✓ CLI commands (20+ commands across 6 command groups)
+- ✓ WebSocket interfaces (Agent, Weaver attach with message formats)
+- ✓ Configuration options (Server TOML, CLI config, environment variables)
+- ✓ SDK client methods (Analytics, Feature Flags, HTTP)
+- ✓ Webhook payloads (Weaver lifecycle, Thread events)
+- ✓ Usage examples (Complete flows)
 
-**Remaining:**
-- SDK client methods
-- Webhook payloads
-- More detailed examples
+**Key Findings:**
+- RESTful API design with consistent error handling
+- Comprehensive CLI with subcommands for all features
+- WebSocket support for real-time agent communication
+- SDKs for analytics and feature flags
+- Flexible configuration with layered precedence
 
-**Next:** Continue documenting remaining interfaces
+**Next Phase:** Phase 6 - Architecture & Patterns
