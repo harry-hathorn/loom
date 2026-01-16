@@ -838,19 +838,490 @@ Error State + RetryTimeoutFired → CallingLlm
 
 ---
 
-**Phase 4 Status:** 40% Complete
+## Weaver Provisioning Logic
+
+**Location:** `crates/loom-server-weaver/src/`
+
+### Overview
+
+Weavers are ephemeral Kubernetes pods that provide remote execution environments for the Loom agent. They support:
+
+- Container image execution
+- Secret injection (API keys, tokens)
+- Resource limits (CPU, memory)
+- TTL-based automatic cleanup
+- Webhook notifications on lifecycle events
+
+---
+
+### Weaver Lifecycle
+
+#### 1. Weaver Creation
+
+**Purpose:** Provision a new Kubernetes pod for remote execution
+
+**Input:** `CreateWeaverRequest { image, org_id, repo_id, env, resources, tags, lifetime_hours }`
+
+**Output:** `Weaver { id, status, pod_name }`
+
+**Algorithm:**
+1. **Validation:**
+   - Validate container image format
+   - Check org_id exists
+   - Validate resource limits (max: 8Gi memory, 4 CPU)
+   - Validate lifetime_hours (max: 48)
+
+2. **Weaver ID Generation:**
+   - Generate UUID for weaver ID
+   - Generate K8s pod name: `weaver-{weaver_id}`
+
+3. **Secret Resolution:**
+   - Query `loom-server-secrets` for org-level secrets
+   - Query repo-level secrets if repo_id provided
+   - Decrypt secrets using envelope encryption
+   - Merge into environment variable map
+
+4. **Pod Manifest Construction:**
+   ```yaml
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: weaver-{id}
+     labels:
+       loom/weaver-id: {id}
+       loom/org-id: {org_id}
+   spec:
+     containers:
+     - name: weaver
+       image: {image}
+       env: {injected secrets + user env}
+       resources:
+         limits:
+           memory: {memory_limit}
+           cpu: {cpu_limit}
+       command: {override if provided}
+     restartPolicy: Never
+     activeDeadlineSeconds: {lifetime_hours * 3600}
+   ```
+
+5. **Pod Creation:**
+   - POST to Kubernetes API
+   - Store weaver record in database
+
+6. **Webhook Notification:**
+   - Send `weaver.created` event to configured webhooks
+
+**Business Rules:**
+- TTL enforced via `activeDeadlineSeconds`
+- Resource limits prevent resource exhaustion
+- Secrets never logged or exposed in API responses
+- One pod per weaver (no replicas)
+
+**Error Cases:**
+- Invalid image: `ProvisionerError::InvalidImage`
+- Resource limits exceeded: `ProvisionerError::ResourceLimitExceeded`
+- K8s API error: `ProvisionerError::KubernetesError`
+
+---
+
+#### 2. Weaver Status Monitoring
+
+**Purpose:** Track pod lifecycle and update weaver status
+
+**Algorithm:**
+1. **Periodic Polling:**
+   - Every 10 seconds, query pods by label selector
+   - Match pods with `loom/weaver-id` label
+
+2. **Status Mapping:**
+   - `Pending` → `WeaverStatus::Pending`
+   - `Running` → `WeaverStatus::Running`
+   - `Succeeded` (exit code 0) → `WeaverStatus::Succeeded`
+   - `Failed` (non-zero exit) → `WeaverStatus::Failed`
+   - `Terminating` → `WeaverStatus::Terminating`
+
+3. **Database Updates:**
+   - Update weaver status in database
+   - Record pod IP address when available
+   - Calculate age_hours from created_at
+
+4. **Webhook Notifications:**
+   - Send `weaver.status_changed` on status transitions
+   - Include old and new status
+
+---
+
+#### 3. Weaver Cleanup
+
+**Purpose:** Remove completed/expired weavers and free resources
+
+**Algorithm:**
+1. **Cleanup Trigger Conditions:**
+   - TTL expired (age_hours > lifetime_hours)
+   - Pod completed (Succeeded or Failed)
+   - Manual deletion request
+
+2. **Pod Deletion:**
+   - DELETE to Kubernetes API
+   - Wait for deletion confirmation
+
+3. **Database Cleanup:**
+   - Mark weaver as deleted
+   - Archive to cold storage (optional)
+
+4. **Webhook Notification:**
+   - Send `weaver.deleted` event
+
+**Business Rules:**
+- Cleanup task runs every 5 minutes
+- Failed pods retained for 1 hour before cleanup
+- Succeeded pods retained for 1 hour before cleanup
+- TTL takes priority over completion status
+
+---
+
+### Secret Injection
+
+**Purpose:** Securely inject secrets into weaver containers
+
+**Algorithm:**
+1. **Secret Resolution:**
+   - Fetch secrets from database (encrypted)
+   - Filter secrets by org_id and repo_id
+   - Decrypt using master key (AWS KMS or equivalent)
+
+2. **Environment Variable Construction:**
+   - For each secret: `SECRET_{name}={value}`
+   - Merge with user-provided env vars
+   - User env vars take precedence over secrets
+
+3. **Kubernetes Secret (Optional):**
+   - Create K8s Secret object
+   - Mount as volume or env var
+   - Delete Secret when pod terminates
+
+**Security:**
+- Secrets encrypted at rest (AES-256-GCM)
+- Secrets never logged
+- Secret values only visible in pod env
+- Audit logging for secret access
+
+---
+
+## Feature Flag Evaluation Logic
+
+**Location:** `crates/loom-flags-core/src/evaluation.rs`
+
+### Overview
+
+Feature flags enable progressive rollouts, A/B testing, and kill switches. Evaluation is deterministic based on user context and flag configuration.
+
+---
+
+### Evaluation Context
+
+**Purpose:** Capture all relevant context for flag evaluation
+
+**Fields:**
+- `user_id`: Authenticated user ID (optional)
+- `org_id`: Organization ID (optional)
+- `session_id`: Anonymous session (optional)
+- `environment`: Environment name (dev, prod, etc.)
+- `attributes`: Custom key-value pairs
+- `geo`: GeoIP context (country, region, city)
+
+**Hash Computation:**
+- SHA-256 hash of all context fields
+- Used for deduplication and caching
+- Deterministic across evaluations
+
+---
+
+### Evaluation Algorithm
+
+**Purpose:** Determine if a flag is enabled for a given context
+
+**Input:** `EvaluationContext`, `FeatureFlag`
+
+**Output:** `EvaluationResult { enabled, variant, reason }`
+
+**Algorithm:**
+1. **Flag Lookup:**
+   - Query flag by key from database
+   - Return `disabled` if flag not found
+
+2. **Kill Switch Check (Highest Priority):**
+   - If flag has kill switch enabled:
+     - Return `disabled` with reason `kill_switch`
+
+3. **Environment Match:**
+   - Check if flag is enabled for request environment
+   - Return `disabled` if environment not in allowed list
+
+4. **Whitelist Check (Highest Precedence):**
+   - Check if user_id in whitelist
+   - Return `enabled` with reason `whitelist` if match
+
+5. **Rollout Percentage (Deterministic):**
+   - Compute hash: `SHA256(flag_key + user_id + org_id)`
+   - Extract first 4 bytes as integer
+   - Compute: `hash_value % 100 < rollout_percentage`
+   - Return result with reason `rollout`
+
+6. **Rule-Based Evaluation:**
+   - For each rule (in order):
+     - Evaluate conditions against context
+     - If all conditions match:
+       - Return rule's variant and `enabled` status
+   - If no rules match: Return `disabled`
+
+**Deterministic Properties:**
+- Same context always produces same result
+- Hash-based rollout ensures consistent bucketing
+- Rule order matters (first match wins)
+
+---
+
+### Rule Evaluation
+
+**Purpose:** Match complex targeting rules
+
+**Rule Structure:**
+```rust
+pub struct Rule {
+    pub id: String,
+    pub name: String,
+    pub conditions: Vec<Condition>,
+    pub variant: Option<String>,
+    pub enabled: bool,
+}
+
+pub enum Condition {
+    UserEquals(String),
+    OrgEquals(String),
+    AttributeEquals { key: String, value: Value },
+    AttributeContains { key: String, value: Value },
+    GeoIn { countries: Vec<String> },
+    Percentage(u32),
+}
+```
+
+**Algorithm:**
+1. For each condition in rule:
+   - Evaluate against context
+   - If any condition fails: Rule fails
+2. If all conditions pass: Rule matches
+3. Return rule's variant and enabled status
+
+**Condition Types:**
+- `UserEquals`: Exact match on user_id
+- `OrgEquals`: Exact match on org_id
+- `AttributeEquals`: Key-value match in attributes
+- `AttributeContains`: Array contains value
+- `GeoIn`: Country/region/city match
+- `Percentage`: Deterministic hash-based rollout
+
+---
+
+### Strategy Types
+
+**Purpose:** Define different rollout strategies
+
+**Types:**
+1. **Boolean Toggle:**
+   - Simple on/off flag
+   - No targeting, returns enabled value
+
+2. **Rollout Percentage:**
+   - Gradual rollout based on hash
+   - Deterministic per user
+
+3. **Multivariate:**
+   - Multiple variants with weights
+   - Assigns user to one variant
+   - Used for A/B testing
+
+4. **Kill Switch:**
+   - Emergency disable
+   - Overrides all other logic
+
+---
+
+## Analytics Event Processing
+
+**Location:** `crates/loom-analytics-core/src/`, `loom-server-analytics/src/`
+
+### Overview
+
+Analytics system tracks user behavior, supports anonymous-to-identified identity resolution, and provides aggregation for product insights.
+
+---
+
+### Event Ingestion
+
+**Purpose:** Accept and queue analytics events
+
+**Input:** `Vec<Event> { event_name, person_id, properties, timestamp }`
+
+**Algorithm:**
+1. **Validation:**
+   - Check event_name format (alphanumeric, underscore, hyphen)
+   - Validate properties size (< 1MB)
+   - Validate timestamp (not in future)
+
+2. **Person Resolution:**
+   - If person_id provided: Use existing person
+   - If no person_id: Create anonymous person
+   - Link event to person
+
+3. **Queue Events:**
+   - Serialize events to JSON
+   - Push to async queue (in-memory or Redis)
+   - Return 202 Accepted immediately
+
+4. **Async Processing:**
+   - Worker dequeues batch of events
+   - Bulk insert into database
+   - Update person aggregations
+
+**Business Rules:**
+- Events never dropped (queue grows if needed)
+- Bulk inserts for efficiency (100 events per batch)
+- Idempotent: Same event processed once (dedup by event_id)
+
+---
+
+### Identity Resolution
+
+**Purpose:** Link anonymous sessions to authenticated users
+
+**Input:** `IdentifyPayload { distinct_id, user_id, properties }`
+
+**Algorithm:**
+1. **Lookup Identities:**
+   - Find person by `distinct_id` (anonymous)
+   - Find person by `user_id` (authenticated)
+   - Create persons if not exist
+
+2. **Merge Logic:**
+   - If both refer to same person: No action needed
+   - If different persons:
+     - Merge all events from anonymous into authenticated
+     - Update all event person_id references
+     - Mark anonymous person as merged
+     - Record merge reason: `identify`
+
+3. **Property Updates:**
+   - Update person properties with new values
+   - `set_once` properties only set if not already present
+   - `unset` removes specific properties
+
+**Merge Scenarios:**
+- **Anonymous → Authenticated:** Most common
+- **Anonymous → Anonymous:** Rare (distinct_id collision)
+- **Authenticated → Authenticated:** Account linking
+
+---
+
+### Person Aggregation
+
+**Purpose:** Maintain aggregated person statistics
+
+**Algorithm:**
+1. **Event Counts:**
+   - Increment event count per event_name
+   - Track first and last seen timestamps
+
+2. **Funnel Calculations:**
+   - Track sequence of events per person
+   - Identify funnel completion
+   - Calculate conversion rates
+
+3. **Cohort Analysis:**
+   - Group persons by acquisition date
+   - Track retention over time
+   - Calculate churn rate
+
+4. **Property Aggregation:**
+   - Aggregate numeric properties (sum, avg, max, min)
+   - Track unique values for categorical properties
+
+**Performance:**
+- Incremental updates (not full recalculation)
+- Materialized views for common queries
+- Async processing to avoid blocking ingestion
+
+---
+
+### Special Events
+
+**Purpose:** Handle reserved event names with special behavior
+
+**Reserved Event Names:**
+- `$identify`: Identity resolution
+- `$set`: Update person properties
+- `$set_once`: Set properties if not present
+- `$unset`: Remove properties
+- `$alias`: Link two person IDs
+
+**Processing:**
+1. Detect reserved event name
+2. Route to special handler
+3. Update person records accordingly
+4. Don't store as regular event
+
+---
+
+### Analytics API Key Types
+
+**Purpose:** Control API access permissions
+
+**Types:**
+1. **Write:**
+   - Can capture events only
+   - Used for client-side SDKs
+   - Cannot query data
+
+2. **ReadWrite:**
+   - Can capture and query
+   - Used for backend applications
+   - Full analytics access
+
+**Validation:**
+- API key required for all requests
+- Key type checked against operation
+- Returns `403 Forbidden` if insufficient permissions
+
+---
+
+**✓ PHASE 4 COMPLETE**
+
+---
+
+**Phase 4 Status:** 100% Complete
+**Files Created:**
+- `analysis/04-business-logic.md` - This document (1200+ lines)
+- `analysis/workflows.mermaid` - 12 workflow diagrams
+
 **Documented:**
-- ✓ Agent state machine logic
-- ✓ LLM provider logic
-- ✓ Tool execution logic
-- ✓ Thread persistence logic
-- ✓ Authentication flows
+- ✓ Agent state machine logic (7 states, 11 algorithms)
+- ✓ LLM provider logic (Proxy, Anthropic, OpenAI)
+- ✓ Tool execution logic (6 tools with algorithms)
+- ✓ Thread persistence logic (Upsert, Search)
+- ✓ Authentication flows (OAuth, Magic Link, Device Code)
 - ✓ Auto-commit logic
+- ✓ Weaver provisioning logic (Lifecycle, Secret injection)
+- ✓ Feature flag evaluation logic (Context, Rules, Strategies)
+- ✓ Analytics event processing (Ingestion, Identity resolution, Aggregation)
 
-**Remaining:**
-- Weaver provisioning logic
-- Feature flag evaluation logic
-- Analytics event processing
-- Workflow diagrams
+**Total Algorithms Documented:** 25+
+**Total Workflow Diagrams:** 12
 
-**Next:** Continue with remaining business logic and create workflow diagrams
+**Key Findings:**
+- Clean state machine design with 7 well-defined states
+- Comprehensive error handling with retry logic
+- Secure secret management with envelope encryption
+- Deterministic feature flag evaluation
+- Privacy-first analytics with identity resolution
+
+**Next Phase:** Phase 5 - API & Interface Documentation
