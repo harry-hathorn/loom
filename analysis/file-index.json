@@ -1,0 +1,423 @@
+{
+  "metadata": {
+    "generated": "2025-01-16",
+    "total_crates": 86,
+    "total_rust_files": 1169,
+    "total_source_files": 600
+  },
+  "crates": {
+    "cli": {
+      "loom-cli": {
+        "path": "crates/loom-cli",
+        "description": "Main CLI binary",
+        "entry_point": "src/main.rs",
+        "dependencies": ["loom-cli-config", "loom-cli-credentials", "loom-cli-tools", "loom-tui-app"]
+      },
+      "loom-cli-acp": {
+        "path": "crates/loom-cli-acp",
+        "description": "Agent Communication Protocol"
+      },
+      "loom-cli-auto-commit": {
+        "path": "crates/loom-cli-auto-commit",
+        "description": "Automatic git commit feature"
+      },
+      "loom-cli-config": {
+        "path": "crates/loom-cli-config",
+        "description": "CLI configuration management",
+        "dependencies": ["dirs", "loom-common-config", "serde", "toml"]
+      },
+      "loom-cli-credentials": {
+        "path": "crates/loom-cli-credentials",
+        "description": "Credential storage"
+      },
+      "loom-cli-git": {
+        "path": "crates/loom-cli-git",
+        "description": "Git integration"
+      },
+      "loom-cli-spool": {
+        "path": "crates/loom-cli-spool",
+        "description": "Spool (message queue) CLI"
+      },
+      "loom-cli-tools": {
+        "path": "crates/loom-cli-tools",
+        "description": "CLI tool implementations"
+      },
+      "loom-cli-wgtunnel": {
+        "path": "crates/loom-cli-wgtunnel",
+        "description": "WireGuard tunnel CLI"
+      }
+    },
+    "server": {
+      "loom-server": {
+        "path": "crates/loom-server",
+        "description": "Main server binary",
+        "entry_point": "src/main.rs"
+      },
+      "loom-server-api": {
+        "path": "crates/loom-server-api",
+        "description": "API layer with typed routing"
+      },
+      "loom-server-auth": {
+        "path": "crates/loom-server-auth",
+        "description": "Authentication framework"
+      },
+      "loom-server-auth-devicecode": {
+        "path": "crates/loom-server-auth-devicecode",
+        "description": "Device code OAuth flow"
+      },
+      "loom-server-auth-github": {
+        "path": "crates/loom-server-auth-github",
+        "description": "GitHub OAuth"
+      },
+      "loom-server-auth-google": {
+        "path": "crates/loom-server-auth-google",
+        "description": "Google OAuth"
+      },
+      "loom-server-auth-magiclink": {
+        "path": "crates/loom-server-auth-magiclink",
+        "description": "Magic link authentication"
+      },
+      "loom-server-auth-okta": {
+        "path": "crates/loom-server-auth-okta",
+        "description": "Okta OAuth"
+      },
+      "loom-server-audit": {
+        "path": "crates/loom-server-audit",
+        "description": "Audit logging"
+      },
+      "loom-server-config": {
+        "path": "crates/loom-server-config",
+        "description": "Server configuration"
+      },
+      "loom-server-db": {
+        "path": "crates/loom-server-db",
+        "description": "Database layer",
+        "dependencies": ["sqlx", "tokio"]
+      },
+      "loom-server-email": {
+        "path": "crates/loom-server-email",
+        "description": "Email sending service"
+      },
+      "loom-server-flags": {
+        "path": "crates/loom-server-flags",
+        "description": "Feature flags endpoint"
+      },
+      "loom-server-github-app": {
+        "path": "crates/loom-server-github-app",
+        "description": "GitHub App integration"
+      },
+      "loom-server-geoip": {
+        "path": "crates/loom-server-geoip",
+        "description": "GeoIP lookup"
+      },
+      "loom-server-jobs": {
+        "path": "crates/loom-server-jobs",
+        "description": "Job scheduler"
+      },
+      "loom-server-k8s": {
+        "path": "crates/loom-server-k8s",
+        "description": "Kubernetes client",
+        "dependencies": ["kube", "k8s-openapi", "tokio"]
+      },
+      "loom-server-logs": {
+        "path": "crates/loom-server-logs",
+        "description": "Log buffering and streaming"
+      },
+      "loom-server-llm-anthropic": {
+        "path": "crates/loom-server-llm-anthropic",
+        "description": "Anthropic Claude provider"
+      },
+      "loom-server-llm-openai": {
+        "path": "crates/loom-server-llm-openai",
+        "description": "OpenAI GPT provider"
+      },
+      "loom-server-llm-proxy": {
+        "path": "crates/loom-server-llm-proxy",
+        "description": "LLM HTTP proxy"
+      },
+      "loom-server-llm-service": {
+        "path": "crates/loom-server-llm-service",
+        "description": "LLM service abstraction"
+      },
+      "loom-server-llm-vertex": {
+        "path": "crates/loom-server-llm-vertex",
+        "description": "Google Vertex AI provider"
+      },
+      "loom-server-provisioning": {
+        "path": "crates/loom-server-provisioning",
+        "description": "SCIM provisioning"
+      },
+      "loom-server-scim": {
+        "path": "crates/loom-server-scim",
+        "description": "SCIM protocol"
+      },
+      "loom-server-scm": {
+        "path": "crates/loom-server-scm",
+        "description": "Source control management"
+      },
+      "loom-server-scm-mirror": {
+        "path": "crates/loom-server-scm-mirror",
+        "description": "Git repository mirroring",
+        "dependencies": ["gix", "loom-cli-credentials", "loom-server-scm"]
+      },
+      "loom-server-search-google-cse": {
+        "path": "crates/loom-server-search-google-cse",
+        "description": "Google Custom Search"
+      },
+      "loom-server-search-serper": {
+        "path": "crates/loom-server-search-serper",
+        "description": "Serper search API"
+      },
+      "loom-server-secrets": {
+        "path": "crates/loom-server-secrets",
+        "description": "Secrets management with envelope encryption",
+        "dependencies": ["aes-gcm", "ed25519-dalek", "loom-common-secret"]
+      },
+      "loom-server-session": {
+        "path": "crates/loom-server-session",
+        "description": "Session management"
+      },
+      "loom-server-smtp": {
+        "path": "crates/loom-server-smtp",
+        "description": "SMTP server"
+      },
+      "loom-server-weaver": {
+        "path": "crates/loom-server-weaver",
+        "description": "Remote execution pod provisioning"
+      }
+    },
+    "common": {
+      "loom-common-config": {
+        "path": "crates/loom-common-config",
+        "description": "Shared configuration"
+      },
+      "loom-common-core": {
+        "path": "crates/loom-common-core",
+        "description": "Core types and utilities"
+      },
+      "loom-common-http": {
+        "path": "crates/loom-common-http",
+        "description": "HTTP client with retry",
+        "dependencies": ["reqwest", "tokio"]
+      },
+      "loom-common-i18n": {
+        "path": "crates/loom-common-i18n",
+        "description": "Internationalization (gettext)"
+      },
+      "loom-common-secret": {
+        "path": "crates/loom-common-secret",
+        "description": "Secret handling with auto-redaction"
+      },
+      "loom-common-spool": {
+        "path": "crates/loom-common-spool",
+        "description": "Message queue spool"
+      },
+      "loom-common-thread": {
+        "path": "crates/loom-common-thread",
+        "description": "Conversation persistence"
+      },
+      "loom-common-version": {
+        "path": "crates/loom-common-version",
+        "description": "Build and version information",
+        "dependencies": ["shadow-rs"]
+      },
+      "loom-common-webhook": {
+        "path": "crates/loom-common-webhook",
+        "description": "Webhook handling"
+      }
+    },
+    "tui": {
+      "loom-tui-app": {
+        "path": "crates/loom-tui-app",
+        "description": "TUI application"
+      },
+      "loom-tui-component": {
+        "path": "crates/loom-tui-component",
+        "description": "Base components"
+      },
+      "loom-tui-core": {
+        "path": "crates/loom-tui-core",
+        "description": "Core TUI abstractions"
+      },
+      "loom-tui-testing": {
+        "path": "crates/loom-tui-testing",
+        "description": "TUI testing utilities"
+      },
+      "loom-tui-theme": {
+        "path": "crates/loom-tui-theme",
+        "description": "Theme system"
+      },
+      "loom-tui-storybook": {
+        "path": "crates/loom-tui-storybook",
+        "description": "Component showcase"
+      },
+      "loom-tui-widget-header": {
+        "path": "crates/loom-tui-widget-header",
+        "description": "Header widget"
+      },
+      "loom-tui-widget-input-box": {
+        "path": "crates/loom-tui-widget-input-box",
+        "description": "Input box widget"
+      },
+      "loom-tui-widget-markdown": {
+        "path": "crates/loom-tui-widget-markdown",
+        "description": "Markdown display widget"
+      },
+      "loom-tui-widget-message-list": {
+        "path": "crates/loom-tui-widget-message-list",
+        "description": "Message list widget"
+      },
+      "loom-tui-widget-modal": {
+        "path": "crates/loom-tui-widget-modal",
+        "description": "Modal dialog widget"
+      },
+      "loom-tui-widget-scrollable": {
+        "path": "crates/loom-tui-widget-scrollable",
+        "description": "Scrollable widget"
+      },
+      "loom-tui-widget-spinner": {
+        "path": "crates/loom-tui-widget-spinner",
+        "description": "Animated spinner widget"
+      },
+      "loom-tui-widget-status-bar": {
+        "path": "crates/loom-tui-widget-status-bar",
+        "description": "Status bar widget"
+      },
+      "loom-tui-widget-thread-list": {
+        "path": "crates/loom-tui-widget-thread-list",
+        "description": "Thread list widget"
+      },
+      "loom-tui-widget-tool-panel": {
+        "path": "crates/loom-tui-widget-tool-panel",
+        "description": "Tool panel widget"
+      }
+    },
+    "weaver": {
+      "loom-weaver-audit-sidecar": {
+        "path": "crates/loom-weaver-audit-sidecar",
+        "description": "eBPF audit sidecar"
+      },
+      "loom-weaver-ebpf": {
+        "path": "crates/loom-weaver-ebpf",
+        "description": "eBPF programs",
+        "dependencies": ["aya-ebpf", "loom-weaver-ebpf-common"]
+      },
+      "loom-weaver-ebpf-common": {
+        "path": "crates/loom-weaver-ebpf-common",
+        "description": "eBPF shared types"
+      },
+      "loom-weaver-secrets": {
+        "path": "crates/loom-weaver-secrets",
+        "description": "Weaver secret injection"
+      },
+      "loom-weaver-wgtunnel": {
+        "path": "crates/loom-weaver-wgtunnel",
+        "description": "Weaver WireGuard tunneling"
+      }
+    },
+    "wgtunnel": {
+      "loom-wgtunnel-common": {
+        "path": "crates/loom-wgtunnel-common",
+        "description": "WireGuard shared types"
+      },
+      "loom-wgtunnel-conn": {
+        "path": "crates/loom-wgtunnel-conn",
+        "description": "Connection management"
+      },
+      "loom-wgtunnel-derp": {
+        "path": "crates/loom-wgtunnel-derp",
+        "description": "DERP relay"
+      },
+      "loom-wgtunnel-engine": {
+        "path": "crates/loom-wgtunnel-engine",
+        "description": "Tunnel engine"
+      }
+    },
+    "features": {
+      "loom-flags-core": {
+        "path": "crates/loom-flags-core",
+        "description": "Core feature flag logic"
+      },
+      "loom-server-flags": {
+        "path": "crates/loom-server-flags",
+        "description": "Feature flags server endpoints"
+      },
+      "loom-flags": {
+        "path": "crates/loom-flags",
+        "description": "Combined feature flags package"
+      }
+    },
+    "analytics": {
+      "loom-analytics-core": {
+        "path": "crates/loom-analytics-core",
+        "description": "Core analytics logic"
+      },
+      "loom-server-analytics": {
+        "path": "crates/loom-server-analytics",
+        "description": "Analytics server endpoints"
+      },
+      "loom-analytics": {
+        "path": "crates/loom-analytics",
+        "description": "Combined analytics package"
+      }
+    },
+    "specialized": {
+      "loom-redact": {
+        "path": "crates/loom-redact",
+        "description": "PII redaction"
+      },
+      "loom-scim": {
+        "path": "crates/loom-scim",
+        "description": "SCIM protocol types"
+      }
+    }
+  },
+  "web": {
+    "loom-web": {
+      "path": "web/loom-web",
+      "description": "SvelteKit web application",
+      "framework": "SvelteKit",
+      "language": "TypeScript",
+      "entry_point": "src/routes/app/+layout.svelte"
+    },
+    "packages": {
+      "analytics": {
+        "path": "web/packages/analytics",
+        "description": "Analytics client library"
+      },
+      "flags": {
+        "path": "web/packages/flags",
+        "description": "Feature flags client library"
+      },
+      "http": {
+        "path": "web/packages/http",
+        "description": "HTTP client library"
+      }
+    }
+  },
+  "ide": {
+    "vscode": {
+      "path": "ide/vscode",
+      "description": "VSCode extension",
+      "language": "TypeScript",
+      "entry_point": "src/extension.ts"
+    }
+  },
+  "infrastructure": {
+    "nixos_modules": {
+      "path": "infra/nixos-modules",
+      "description": "NixOS configuration modules",
+      "count": 21
+    },
+    "packages": {
+      "path": "infra/pkgs",
+      "description": "Nix package definitions",
+      "count": 15
+    }
+  },
+  "specs": {
+    "path": "specs",
+    "description": "Design specifications",
+    "count": 48
+  }
+}
